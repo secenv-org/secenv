@@ -1,6 +1,6 @@
 {
   "name": "secenv",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "The Breeze: Secret management without the overhead",
   "type": "module",
   "bin": {
