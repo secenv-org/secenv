@@ -1,6 +1,6 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import * as readline from 'readline';
+import * as fs from "fs";
+import * as path from "path";
+import * as readline from "readline";
 import {
   generateIdentity,
   saveIdentity,
@@ -10,8 +10,8 @@ import {
   getDefaultKeyPath,
   ensureSecenvDir,
   encrypt as encryptValue,
-  decrypt as decryptValue
-} from './age.js';
+  decrypt as decryptValue,
+} from "./age.js";
 import {
   parseEnvFile,
   setKey,
@@ -19,8 +19,8 @@ import {
   findKey,
   getEnvPath,
   isEncryptedValue,
-  writeAtomic
-} from './parse.js';
+  writeAtomic,
+} from "./parse.js";
 import {
   IdentityNotFoundError,
   DecryptionError,
@@ -28,44 +28,44 @@ import {
   ParseError,
   FileError,
   EncryptionError,
-  SecenvError
-} from './errors.js';
+  SecenvError,
+} from "./errors.js";
 
-const ENCRYPTED_PREFIX = 'enc:age:';
+const ENCRYPTED_PREFIX = "enc:age:";
 
-function print(msg: string, color: string = 'reset', isError: boolean = false) {
+function print(msg: string, color: string = "reset", isError: boolean = false) {
   const colors: Record<string, string> = {
-    reset: '\x1b[0m',
-    green: '\x1b[32m',
-    red: '\x1b[31m',
-    yellow: '\x1b[33m',
-    blue: '\x1b[34m',
-    cyan: '\x1b[36m'
+    reset: "\x1b[0m",
+    green: "\x1b[32m",
+    red: "\x1b[31m",
+    yellow: "\x1b[33m",
+    blue: "\x1b[34m",
+    cyan: "\x1b[36m",
   };
   const stream = isError ? process.stderr : process.stdout;
   stream.write(`${colors[color] || colors.reset}${msg}${colors.reset}\n`);
 }
 
 function printSuccess(msg: string) {
-  print(`✓ ${msg}`, 'green');
+  print(`✓ ${msg}`, "green");
 }
 
 function printError(msg: string) {
-  print(`✗ ${msg}`, 'red', true);
+  print(`✗ ${msg}`, "red", true);
 }
 
 function printWarning(msg: string) {
-  print(`⚠ ${msg}`, 'yellow');
+  print(`⚠ ${msg}`, "yellow");
 }
 
 function printInfo(msg: string) {
-  print(`ℹ ${msg}`, 'cyan');
+  print(`ℹ ${msg}`, "cyan");
 }
 
 async function promptSecret(promptText: string): Promise<string> {
   const rl = readline.createInterface({
     input: process.stdin,
-    output: process.stdout
+    output: process.stdout,
   });
 
   return new Promise((resolve, reject) => {
@@ -78,7 +78,7 @@ async function promptSecret(promptText: string): Promise<string> {
 
 async function confirm(message: string): Promise<boolean> {
   const answer = await promptSecret(`${message} (yes/no): `);
-  return answer.toLowerCase() === 'yes';
+  return answer.toLowerCase() === "yes";
 }
 
 async function cmdInit() {
@@ -87,27 +87,27 @@ async function cmdInit() {
     return;
   }
 
-  printInfo('Generating identity key...');
+  printInfo("Generating identity key...");
   const identity = await generateIdentity();
   const keyPath = await saveIdentity(identity);
   printSuccess(`Identity created at ${keyPath}`);
 
   const envPath = getEnvPath();
   if (!fs.existsSync(envPath)) {
-    await writeAtomic(envPath, '');
+    await writeAtomic(envPath, "");
     printSuccess(`Created ${envPath}`);
   }
 
-  const gitignorePath = path.join(process.cwd(), '.gitignore');
-  let gitignoreContent = '';
+  const gitignorePath = path.join(process.cwd(), ".gitignore");
+  let gitignoreContent = "";
   if (fs.existsSync(gitignorePath)) {
-    gitignoreContent = fs.readFileSync(gitignorePath, 'utf-8');
+    gitignoreContent = fs.readFileSync(gitignorePath, "utf-8");
   }
 
-  const gitignoreEntry = '.env.enc\n';
+  const gitignoreEntry = ".secenv\n";
   if (!gitignoreContent.includes(gitignoreEntry)) {
-    if (gitignoreContent && !gitignoreContent.endsWith('\n')) {
-      gitignoreContent += '\n';
+    if (gitignoreContent && !gitignoreContent.endsWith("\n")) {
+      gitignoreContent += "\n";
     }
     gitignoreContent += gitignoreEntry;
     fs.writeFileSync(gitignorePath, gitignoreContent);
@@ -116,7 +116,7 @@ async function cmdInit() {
 
   const publicKey = await getPublicKey(identity);
   printInfo(`Your public key: ${publicKey}`);
-  printInfo('Keep your private key safe!');
+  printInfo("Keep your private key safe!");
 }
 
 async function cmdSet(key: string, value?: string, isBase64: boolean = false) {
@@ -131,17 +131,19 @@ async function cmdSet(key: string, value?: string, isBase64: boolean = false) {
   }
 
   if (!secretValue) {
-    throw new EncryptionError('Value cannot be empty');
+    throw new EncryptionError("Value cannot be empty");
   }
 
   if (isBase64) {
     try {
-      Buffer.from(secretValue, 'base64');
+      Buffer.from(secretValue, "base64");
     } catch (e) {
-      throw new EncryptionError('Invalid base64 value');
+      throw new EncryptionError("Invalid base64 value");
     }
-  } else if (secretValue.includes('\n') || secretValue.includes('\r')) {
-    throw new EncryptionError('Multiline values are not allowed. Use --base64 for binary data.');
+  } else if (secretValue.includes("\n") || secretValue.includes("\r")) {
+    throw new EncryptionError(
+      "Multiline values are not allowed. Use --base64 for binary data.",
+    );
   }
 
   const identity = await loadIdentity();
@@ -173,7 +175,10 @@ async function cmdGet(key: string) {
   }
 
   if (line.encrypted) {
-    const decrypted = await decryptValue(identity, line.value.slice(ENCRYPTED_PREFIX.length));
+    const decrypted = await decryptValue(
+      identity,
+      line.value.slice(ENCRYPTED_PREFIX.length),
+    );
     process.stdout.write(decrypted);
   } else {
     process.stdout.write(line.value);
@@ -191,7 +196,7 @@ async function cmdList() {
 
   for (const line of parsed.lines) {
     if (line.key) {
-      const status = line.encrypted ? '[encrypted]' : '[plaintext]';
+      const status = line.encrypted ? "[encrypted]" : "[plaintext]";
       print(`${line.key}  ${status}`);
     }
   }
@@ -223,7 +228,7 @@ async function cmdRotate(key: string, newValue?: string) {
   }
 
   if (!secretValue) {
-    throw new EncryptionError('Value cannot be empty');
+    throw new EncryptionError("Value cannot be empty");
   }
 
   await cmdSet(key, secretValue);
@@ -232,9 +237,11 @@ async function cmdRotate(key: string, newValue?: string) {
 
 async function cmdExport(force: boolean = false) {
   if (!force) {
-    const confirmed = await confirm('WARNING: You are about to export ALL secrets in PLAINTEXT');
+    const confirmed = await confirm(
+      "WARNING: You are about to export ALL secrets in PLAINTEXT",
+    );
     if (!confirmed) {
-      print('Export cancelled.');
+      print("Export cancelled.");
       return;
     }
   }
@@ -247,7 +254,7 @@ async function cmdExport(force: boolean = false) {
   const envPath = getEnvPath();
 
   if (!fs.existsSync(envPath)) {
-    print('No .env.enc file found.');
+    print("No .secenv file found.");
     return;
   }
 
@@ -257,7 +264,10 @@ async function cmdExport(force: boolean = false) {
     if (line.key) {
       let value: string;
       if (line.encrypted) {
-        value = await decryptValue(identity, line.value.slice(ENCRYPTED_PREFIX.length));
+        value = await decryptValue(
+          identity,
+          line.value.slice(ENCRYPTED_PREFIX.length),
+        );
       } else {
         value = line.value;
       }
@@ -275,14 +285,16 @@ async function cmdDoctor() {
   if (identityExists()) {
     try {
       const stats = fs.statSync(identityPath);
-      const isUnix = process.platform !== 'win32';
-      
+      const isUnix = process.platform !== "win32";
+
       if (isUnix && (stats.mode & 0o777) !== 0o600) {
-        printWarning(`Identity: ${identityPath} (exists, but permissions should be 0600, found ${((stats.mode & 0o777).toString(8))})`);
+        printWarning(
+          `Identity: ${identityPath} (exists, but permissions should be 0600, found ${(stats.mode & 0o777).toString(8)})`,
+        );
       } else {
         printSuccess(`Identity: ${identityPath}`);
       }
-      
+
       const identity = await loadIdentity();
       await getPublicKey(identity);
       printSuccess(`Identity: ${identityPath}`);
@@ -308,7 +320,9 @@ async function cmdDoctor() {
   if (fs.existsSync(envPath)) {
     try {
       const parsed = parseEnvFile(envPath);
-      printSuccess(`Syntax: ${parsed.lines.length} lines, ${parsed.encryptedCount} encrypted, ${parsed.plaintextCount} plaintext`);
+      printSuccess(
+        `Syntax: ${parsed.lines.length} lines, ${parsed.encryptedCount} encrypted, ${parsed.plaintextCount} plaintext`,
+      );
       passed++;
     } catch (error) {
       if (error instanceof ParseError) {
@@ -333,7 +347,10 @@ async function cmdDoctor() {
       for (const line of parsed.lines) {
         if (line.encrypted) {
           try {
-            await decryptValue(identity, line.value.slice(ENCRYPTED_PREFIX.length));
+            await decryptValue(
+              identity,
+              line.value.slice(ENCRYPTED_PREFIX.length),
+            );
             decryptedCount++;
           } catch (error) {
             failedCount++;
@@ -342,10 +359,14 @@ async function cmdDoctor() {
       }
 
       if (failedCount === 0) {
-        printSuccess(`Decryption: ${decryptedCount}/${decryptedCount} keys verified`);
+        printSuccess(
+          `Decryption: ${decryptedCount}/${decryptedCount} keys verified`,
+        );
         passed++;
       } else {
-        printError(`Decryption: ${decryptedCount} succeeded, ${failedCount} failed`);
+        printError(
+          `Decryption: ${decryptedCount} succeeded, ${failedCount} failed`,
+        );
       }
     } catch (error) {
       printError(`Decryption: ${error}`);
@@ -355,91 +376,107 @@ async function cmdDoctor() {
     passed++;
   }
 
-  print('');
+  print("");
   print(`Doctor: ${passed}/${checks} checks passed`);
 }
 
 async function main() {
   const args = process.argv.slice(2);
-  const command = args[0] || 'help';
+  const command = args[0] || "help";
 
   try {
     switch (command) {
-      case 'init':
+      case "init":
         await cmdInit();
         break;
 
-      case 'set': {
-        const isBase64 = args.includes('--base64');
-        const filteredArgs = args.filter(a => a !== '--base64');
+      case "set": {
+        const isBase64 = args.includes("--base64");
+        const filteredArgs = args.filter((a) => a !== "--base64");
         const key = filteredArgs[1];
         if (!key) {
-          throw new Error('Missing KEY argument. Usage: secenv set KEY [VALUE] [--base64]');
+          throw new Error(
+            "Missing KEY argument. Usage: secenv set KEY [VALUE] [--base64]",
+          );
         }
         const value = filteredArgs[2];
         await cmdSet(key, value, isBase64);
         break;
       }
 
-      case 'get': {
+      case "get": {
         const key = args[1];
         if (!key) {
-          throw new Error('Missing KEY argument. Usage: secenv get KEY');
+          throw new Error("Missing KEY argument. Usage: secenv get KEY");
         }
         await cmdGet(key);
         break;
       }
 
-      case 'list':
+      case "list":
         await cmdList();
         break;
 
-      case 'delete': {
+      case "delete": {
         const key = args[1];
         if (!key) {
-          throw new Error('Missing KEY argument. Usage: secenv delete KEY');
+          throw new Error("Missing KEY argument. Usage: secenv delete KEY");
         }
         await cmdDelete(key);
         break;
       }
 
-      case 'rotate': {
+      case "rotate": {
         const key = args[1];
         if (!key) {
-          throw new Error('Missing KEY argument. Usage: secenv rotate KEY [VALUE]');
+          throw new Error(
+            "Missing KEY argument. Usage: secenv rotate KEY [VALUE]",
+          );
         }
         const value = args[2];
         await cmdRotate(key, value);
         break;
       }
 
-      case 'export': {
-        const force = args.includes('--force');
+      case "export": {
+        const force = args.includes("--force");
         await cmdExport(force);
         break;
       }
 
-      case 'doctor':
+      case "doctor":
         await cmdDoctor();
         break;
 
-      case 'help':
+      case "help":
       default:
-        print('secenv - The Breeze: Secret management without the overhead');
-        print('');
-        print('Usage: secenv <command> [arguments]');
-        print('');
-        print('Commands:');
-        print('  init              Bootstrap identity and create .env.enc/.gitignore');
-        print('  set KEY [VALUE]    Encrypt a value into .env.enc (primary method)');
-        print('  set KEY [VALUE] --base64  Encrypt a base64 value (for binary data)');
-        print('  get KEY           Decrypt and print a specific key value');
-        print('  list              List all available key names (values hidden)');
-        print('  delete KEY        Remove a key from .env.enc');
-        print('  rotate KEY [VALUE] Update a secret value and re-encrypt');
-        print('  export [--force]  Dump all decrypted values (requires --force)');
-        print('  doctor            Health check: identity, file integrity, decryption');
-        print('');
+        print("secenv - The Breeze: Secret management without the overhead");
+        print("");
+        print("Usage: secenv <command> [arguments]");
+        print("");
+        print("Commands:");
+        print(
+          "  init              Bootstrap identity and create .secenv/.gitignore",
+        );
+        print(
+          "  set KEY [VALUE]    Encrypt a value into .secenv (primary method)",
+        );
+        print(
+          "  set KEY [VALUE] --base64  Encrypt a base64 value (for binary data)",
+        );
+        print("  get KEY           Decrypt and print a specific key value");
+        print(
+          "  list              List all available key names (values hidden)",
+        );
+        print("  delete KEY        Remove a key from .secenv");
+        print("  rotate KEY [VALUE] Update a secret value and re-encrypt");
+        print(
+          "  export [--force]  Dump all decrypted values (requires --force)",
+        );
+        print(
+          "  doctor            Health check: identity, file integrity, decryption",
+        );
+        print("");
         break;
     }
   } catch (error) {

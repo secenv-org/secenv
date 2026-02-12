@@ -1,9 +1,9 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import { ParseError, FileError } from './errors.js';
-import { safeReadFile } from './filesystem.js';
-import { validateKey, validateValue } from './validators.js';
-import { constantTimeEqual } from './crypto-utils.js';
+import * as fs from "fs";
+import * as path from "path";
+import { ParseError, FileError } from "./errors.js";
+import { safeReadFile } from "./filesystem.js";
+import { validateKey, validateValue } from "./validators.js";
+import { constantTimeEqual } from "./crypto-utils.js";
 
 export interface ParsedLine {
   key: string;
@@ -20,8 +20,8 @@ export interface ParsedEnv {
   plaintextCount: number;
 }
 
-export const ENCRYPTED_PREFIX = 'enc:age:';
-const VAULT_PREFIX = 'vault:';
+export const ENCRYPTED_PREFIX = "enc:age:";
+const VAULT_PREFIX = "vault:";
 
 export function isEncryptedValue(value: string): boolean {
   return value.startsWith(ENCRYPTED_PREFIX);
@@ -37,10 +37,10 @@ export function parseEnvFile(filePath: string): ParsedEnv {
   }
 
   let content = safeReadFile(filePath);
-  if (content.startsWith('\uFEFF')) {
+  if (content.startsWith("\uFEFF")) {
     content = content.slice(1);
   }
-  const lines = content.split('\n');
+  const lines = content.split("\n");
   const parsedLines: ParsedLine[] = [];
   const keys = new Set<string>();
   let encryptedCount = 0;
@@ -51,23 +51,23 @@ export function parseEnvFile(filePath: string): ParsedEnv {
     const raw = lines[i];
     const trimmed = raw.trim();
 
-    if (!trimmed || trimmed.startsWith('#')) {
+    if (!trimmed || trimmed.startsWith("#")) {
       parsedLines.push({
-        key: '',
+        key: "",
         value: trimmed,
         encrypted: false,
         lineNumber,
-        raw
+        raw,
       });
       continue;
     }
 
-    const eqIndex = trimmed.indexOf('=');
+    const eqIndex = trimmed.indexOf("=");
     if (eqIndex === -1) {
       throw new ParseError(
         lineNumber,
         raw,
-        `Invalid line: missing '=' separator`
+        `Invalid line: missing '=' separator`,
       );
     }
 
@@ -78,7 +78,7 @@ export function parseEnvFile(filePath: string): ParsedEnv {
       throw new ParseError(
         lineNumber,
         raw,
-        `Invalid line: missing key before '='`
+        `Invalid line: missing key before '='`,
       );
     }
 
@@ -86,11 +86,7 @@ export function parseEnvFile(filePath: string): ParsedEnv {
     validateKey(key);
 
     if (keys.has(key)) {
-      throw new ParseError(
-        lineNumber,
-        raw,
-        `Duplicate key '${key}'`
-      );
+      throw new ParseError(lineNumber, raw, `Duplicate key '${key}'`);
     }
 
     const encrypted = isEncryptedValue(value);
@@ -100,7 +96,7 @@ export function parseEnvFile(filePath: string): ParsedEnv {
       value,
       encrypted,
       lineNumber,
-      raw
+      raw,
     });
 
     keys.add(key);
@@ -116,7 +112,7 @@ export function parseEnvFile(filePath: string): ParsedEnv {
     lines: parsedLines,
     keys,
     encryptedCount,
-    plaintextCount
+    plaintextCount,
   };
 }
 
@@ -133,25 +129,25 @@ export function findKey(env: ParsedEnv, key: string): ParsedLine | null {
 export async function setKey(
   filePath: string,
   key: string,
-  encryptedValue: string
+  encryptedValue: string,
 ): Promise<void> {
   validateKey(key);
   validateValue(encryptedValue);
 
   await withLock(filePath, async () => {
-    const content = fs.existsSync(filePath) ? safeReadFile(filePath) : '';
-    const lines = content.split('\n');
+    const content = fs.existsSync(filePath) ? safeReadFile(filePath) : "";
+    const lines = content.split("\n");
     let found = false;
     const newLines: string[] = [];
 
     for (const line of lines) {
       const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith('#')) {
+      if (!trimmed || trimmed.startsWith("#")) {
         newLines.push(line);
         continue;
       }
 
-      const eqIndex = trimmed.indexOf('=');
+      const eqIndex = trimmed.indexOf("=");
       if (eqIndex !== -1) {
         const existingKey = trimmed.slice(0, eqIndex);
         if (existingKey === key) {
@@ -167,7 +163,11 @@ export async function setKey(
       newLines.push(`${key}=${encryptedValue}`);
     }
 
-    const finalContent = newLines.filter((l, i) => l.trim() !== '' || i < newLines.length - 1).join('\n').trim() + '\n';
+    const finalContent =
+      newLines
+        .filter((l, i) => l.trim() !== "" || i < newLines.length - 1)
+        .join("\n")
+        .trim() + "\n";
     await writeAtomicRaw(filePath, finalContent);
   });
 }
@@ -176,18 +176,18 @@ export async function deleteKey(filePath: string, key: string): Promise<void> {
   validateKey(key);
 
   await withLock(filePath, async () => {
-    const content = fs.existsSync(filePath) ? safeReadFile(filePath) : '';
-    const lines = content.split('\n');
+    const content = fs.existsSync(filePath) ? safeReadFile(filePath) : "";
+    const lines = content.split("\n");
     const newLines: string[] = [];
 
     for (const line of lines) {
       const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith('#')) {
+      if (!trimmed || trimmed.startsWith("#")) {
         newLines.push(line);
         continue;
       }
 
-      const eqIndex = trimmed.indexOf('=');
+      const eqIndex = trimmed.indexOf("=");
       if (eqIndex !== -1) {
         const existingKey = trimmed.slice(0, eqIndex);
         if (existingKey === key) {
@@ -197,33 +197,40 @@ export async function deleteKey(filePath: string, key: string): Promise<void> {
       newLines.push(line);
     }
 
-    const finalContent = newLines.filter((l, i) => l.trim() !== '' || i < newLines.length - 1).join('\n').trim() + '\n';
+    const finalContent =
+      newLines
+        .filter((l, i) => l.trim() !== "" || i < newLines.length - 1)
+        .join("\n")
+        .trim() + "\n";
     await writeAtomicRaw(filePath, finalContent);
   });
 }
 
-async function withLock(filePath: string, fn: () => Promise<void> | void): Promise<void> {
+async function withLock(
+  filePath: string,
+  fn: () => Promise<void> | void,
+): Promise<void> {
   const lockPath = `${filePath}.lock`;
   let lockHandle: fs.promises.FileHandle | null = null;
   let retries = 100;
   let delay = 10;
-  
+
   while (retries > 0) {
     try {
-      lockHandle = await fs.promises.open(lockPath, 'wx');
+      lockHandle = await fs.promises.open(lockPath, "wx");
       await lockHandle.write(process.pid.toString());
       break;
     } catch (e: any) {
-      if (e.code === 'EEXIST') {
+      if (e.code === "EEXIST") {
         // Stale lock detection
         try {
-          const pidStr = await fs.promises.readFile(lockPath, 'utf-8');
+          const pidStr = await fs.promises.readFile(lockPath, "utf-8");
           const pid = parseInt(pidStr.trim(), 10);
           if (!isNaN(pid)) {
             try {
               process.kill(pid, 0);
             } catch (err: any) {
-              if (err.code === 'ESRCH') {
+              if (err.code === "ESRCH") {
                 try {
                   await fs.promises.unlink(lockPath);
                   continue;
@@ -234,7 +241,7 @@ async function withLock(filePath: string, fn: () => Promise<void> | void): Promi
         } catch {}
 
         retries--;
-        await new Promise(resolve => setTimeout(resolve, delay));
+        await new Promise((resolve) => setTimeout(resolve, delay));
         delay = Math.min(delay * 1.5 + Math.random() * 50, 5000);
       } else {
         throw new FileError(`Failed to acquire lock on ${filePath}: ${e}`);
@@ -256,17 +263,23 @@ async function withLock(filePath: string, fn: () => Promise<void> | void): Promi
   }
 }
 
-export async function writeAtomic(filePath: string, content: string): Promise<void> {
+export async function writeAtomic(
+  filePath: string,
+  content: string,
+): Promise<void> {
   await withLock(filePath, async () => {
     await writeAtomicRaw(filePath, content);
   });
 }
 
-async function writeAtomicRaw(filePath: string, content: string): Promise<void> {
+async function writeAtomicRaw(
+  filePath: string,
+  content: string,
+): Promise<void> {
   const tmpPath = `${filePath}.tmp.${Date.now()}`;
   try {
     await fs.promises.writeFile(tmpPath, content, { mode: 0o644 });
-    const fd = await fs.promises.open(tmpPath, 'r');
+    const fd = await fs.promises.open(tmpPath, "r");
     await fd.sync();
     await fd.close();
     await fs.promises.rename(tmpPath, filePath);
@@ -281,5 +294,5 @@ async function writeAtomicRaw(filePath: string, content: string): Promise<void> 
 }
 
 export function getEnvPath(): string {
-  return path.join(process.cwd(), '.env.enc');
+  return path.join(process.cwd(), ".secenv");
 }
