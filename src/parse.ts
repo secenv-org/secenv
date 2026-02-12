@@ -17,7 +17,7 @@ export interface ParsedEnv {
   plaintextCount: number;
 }
 
-const ENCRYPTED_PREFIX = 'enc:age:';
+export const ENCRYPTED_PREFIX = 'enc:age:';
 const VAULT_PREFIX = 'vault:';
 
 export function isEncryptedValue(value: string): boolean {
@@ -68,6 +68,14 @@ export function parseEnvFile(filePath: string): ParsedEnv {
     const key = trimmed.slice(0, eqIndex);
     const value = trimmed.slice(eqIndex + 1);
 
+    if (!key) {
+      throw new ParseError(
+        lineNumber,
+        raw,
+        `Invalid line: missing key before '='`
+      );
+    }
+
     if (keys.has(key)) {
       throw new ParseError(
         lineNumber,
@@ -117,63 +125,111 @@ export function setKey(
   key: string,
   encryptedValue: string
 ): void {
-  const content = fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf-8') : '';
-  const lines = content.split('\n');
-  let found = false;
-  const newLines: string[] = [];
+  withLock(filePath, () => {
+    const content = fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf-8') : '';
+    const lines = content.split('\n');
+    let found = false;
+    const newLines: string[] = [];
 
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) {
-      newLines.push(line);
-      continue;
-    }
-
-    const eqIndex = trimmed.indexOf('=');
-    if (eqIndex !== -1) {
-      const existingKey = trimmed.slice(0, eqIndex);
-      if (existingKey === key) {
-        newLines.push(`${key}=${encryptedValue}`);
-        found = true;
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) {
+        newLines.push(line);
         continue;
       }
+
+      const eqIndex = trimmed.indexOf('=');
+      if (eqIndex !== -1) {
+        const existingKey = trimmed.slice(0, eqIndex);
+        if (existingKey === key) {
+          newLines.push(`${key}=${encryptedValue}`);
+          found = true;
+          continue;
+        }
+      }
+      newLines.push(line);
     }
-    newLines.push(line);
-  }
 
-  if (!found) {
-    newLines.push(`${key}=${encryptedValue}`);
-  }
+    if (!found) {
+      newLines.push(`${key}=${encryptedValue}`);
+    }
 
-  writeAtomic(filePath, newLines.join('\n'));
+    // Filter out extra empty lines at the end and join with newlines
+    const finalContent = newLines.filter((l, i) => l.trim() !== '' || i < newLines.length - 1).join('\n').trim() + '\n';
+    writeAtomicRaw(filePath, finalContent);
+  });
 }
 
 export function deleteKey(filePath: string, key: string): void {
-  const content = fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf-8') : '';
-  const lines = content.split('\n');
-  const newLines: string[] = [];
+  withLock(filePath, () => {
+    const content = fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf-8') : '';
+    const lines = content.split('\n');
+    const newLines: string[] = [];
 
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) {
-      newLines.push(line);
-      continue;
-    }
-
-    const eqIndex = trimmed.indexOf('=');
-    if (eqIndex !== -1) {
-      const existingKey = trimmed.slice(0, eqIndex);
-      if (existingKey === key) {
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) {
+        newLines.push(line);
         continue;
       }
+
+      const eqIndex = trimmed.indexOf('=');
+      if (eqIndex !== -1) {
+        const existingKey = trimmed.slice(0, eqIndex);
+        if (existingKey === key) {
+          continue;
+        }
+      }
+      newLines.push(line);
     }
-    newLines.push(line);
+
+    const finalContent = newLines.filter((l, i) => l.trim() !== '' || i < newLines.length - 1).join('\n').trim() + '\n';
+    writeAtomicRaw(filePath, finalContent);
+  });
+}
+
+function withLock(filePath: string, fn: () => void): void {
+  const lockPath = `${filePath}.lock`;
+  let lockFd: number | null = null;
+  let retries = 100;
+  
+  while (retries > 0) {
+    try {
+      lockFd = fs.openSync(lockPath, 'wx');
+      break;
+    } catch (e: any) {
+      if (e.code === 'EEXIST') {
+        retries--;
+        const delay = Math.floor(Math.random() * 50) + 10;
+        const start = Date.now();
+        while (Date.now() - start < delay) {}
+      } else {
+        throw new FileError(`Failed to acquire lock on ${filePath}: ${e}`);
+      }
+    }
   }
 
-  writeAtomic(filePath, newLines.join('\n'));
+  if (!lockFd) {
+    throw new FileError(`Timeout waiting for lock on ${filePath}`);
+  }
+
+  try {
+    fn();
+  } finally {
+    fs.closeSync(lockFd);
+    try {
+      fs.unlinkSync(lockPath);
+    } catch {}
+  }
 }
 
 export function writeAtomic(filePath: string, content: string): void {
+  withLock(filePath, () => {
+    writeAtomicRaw(filePath, content);
+  });
+}
+
+function writeAtomicRaw(filePath: string, content: string): void {
   const tmpPath = `${filePath}.tmp.${Date.now()}`;
   try {
     fs.writeFileSync(tmpPath, content, { mode: 0o644 });

@@ -30,7 +30,8 @@ async function readAll(stream: ReadableStream<Uint8Array>): Promise<Uint8Array> 
 }
 
 export function getKeysDir(): string {
-  return path.join(os.homedir(), SECENV_DIR, KEYS_DIR);
+  const baseDir = process.env.SECENV_HOME || os.homedir();
+  return path.join(baseDir, SECENV_DIR, KEYS_DIR);
 }
 
 export function getDefaultKeyPath(): string {

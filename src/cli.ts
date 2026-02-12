@@ -33,7 +33,7 @@ import {
 
 const ENCRYPTED_PREFIX = 'enc:age:';
 
-function print(msg: string, color: string = 'reset') {
+function print(msg: string, color: string = 'reset', isError: boolean = false) {
   const colors: Record<string, string> = {
     reset: '\x1b[0m',
     green: '\x1b[32m',
@@ -42,7 +42,8 @@ function print(msg: string, color: string = 'reset') {
     blue: '\x1b[34m',
     cyan: '\x1b[36m'
   };
-  process.stdout.write(`${colors[color] || colors.reset}${msg}${colors.reset}\n`);
+  const stream = isError ? process.stderr : process.stdout;
+  stream.write(`${colors[color] || colors.reset}${msg}${colors.reset}\n`);
 }
 
 function printSuccess(msg: string) {
@@ -50,7 +51,7 @@ function printSuccess(msg: string) {
 }
 
 function printError(msg: string) {
-  print(`✗ ${msg}`, 'red');
+  print(`✗ ${msg}`, 'red', true);
 }
 
 function printWarning(msg: string) {
@@ -118,7 +119,7 @@ async function cmdInit() {
   printInfo('Keep your private key safe!');
 }
 
-async function cmdSet(key: string, value?: string) {
+async function cmdSet(key: string, value?: string, isBase64: boolean = false) {
   if (!identityExists()) {
     throw new IdentityNotFoundError(getDefaultKeyPath());
   }
@@ -131,6 +132,16 @@ async function cmdSet(key: string, value?: string) {
 
   if (!secretValue) {
     throw new EncryptionError('Value cannot be empty');
+  }
+
+  if (isBase64) {
+    try {
+      Buffer.from(secretValue, 'base64');
+    } catch (e) {
+      throw new EncryptionError('Invalid base64 value');
+    }
+  } else if (secretValue.includes('\n') || secretValue.includes('\r')) {
+    throw new EncryptionError('Multiline values are not allowed. Use --base64 for binary data.');
   }
 
   const identity = await loadIdentity();
@@ -263,6 +274,15 @@ async function cmdDoctor() {
   const identityPath = getDefaultKeyPath();
   if (identityExists()) {
     try {
+      const stats = fs.statSync(identityPath);
+      const isUnix = process.platform !== 'win32';
+      
+      if (isUnix && (stats.mode & 0o777) !== 0o600) {
+        printWarning(`Identity: ${identityPath} (exists, but permissions should be 0600, found ${((stats.mode & 0o777).toString(8))})`);
+      } else {
+        printSuccess(`Identity: ${identityPath}`);
+      }
+      
       const identity = await loadIdentity();
       await getPublicKey(identity);
       printSuccess(`Identity: ${identityPath}`);
@@ -350,12 +370,14 @@ async function main() {
         break;
 
       case 'set': {
-        const key = args[1];
+        const isBase64 = args.includes('--base64');
+        const filteredArgs = args.filter(a => a !== '--base64');
+        const key = filteredArgs[1];
         if (!key) {
-          throw new Error('Missing KEY argument. Usage: secenv set KEY [VALUE]');
+          throw new Error('Missing KEY argument. Usage: secenv set KEY [VALUE] [--base64]');
         }
-        const value = args[2];
-        await cmdSet(key, value);
+        const value = filteredArgs[2];
+        await cmdSet(key, value, isBase64);
         break;
       }
 
@@ -410,6 +432,7 @@ async function main() {
         print('Commands:');
         print('  init              Bootstrap identity and create .env.enc/.gitignore');
         print('  set KEY [VALUE]    Encrypt a value into .env.enc (primary method)');
+        print('  set KEY [VALUE] --base64  Encrypt a base64 value (for binary data)');
         print('  get KEY           Decrypt and print a specific key value');
         print('  list              List all available key names (values hidden)');
         print('  delete KEY        Remove a key from .env.enc');

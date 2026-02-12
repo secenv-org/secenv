@@ -10,7 +10,8 @@ import {
 import {
   parseEnvFile,
   findKey,
-  getEnvPath
+  getEnvPath,
+  ENCRYPTED_PREFIX
 } from './parse.js';
 import {
   DecryptionError,
@@ -71,6 +72,8 @@ class SecenvSDK {
   private reloadEnv(): void {
     if (!fs.existsSync(this.envPath)) {
       this.parsedEnv = null;
+      this.cache.clear();
+      this.cacheTimestamp = 0;
       return;
     }
 
@@ -78,22 +81,21 @@ class SecenvSDK {
     if (newTimestamp !== this.cacheTimestamp) {
       this.parsedEnv = parseEnvFile(this.envPath);
       this.cacheTimestamp = newTimestamp;
+      this.cache.clear(); // Clear cache when file changes
     }
   }
 
   async get<T extends string = string>(key: string): Promise<T> {
-    if (this.cache.has(key)) {
-      const cached = this.cache.get(key)!;
-      this.reloadEnv();
-      const currentTimestamp = fs.existsSync(this.envPath)
-        ? fs.statSync(this.envPath).mtimeMs
-        : 0;
-      if (currentTimestamp === this.cacheTimestamp) {
-        return cached.value as T;
-      }
+    // 1. Check process.env first (highest priority)
+    if (process.env[key] !== undefined) {
+      return process.env[key] as T;
     }
 
     this.reloadEnv();
+
+    if (this.cache.has(key)) {
+      return this.cache.get(key)!.value as T;
+    }
 
     if (!this.parsedEnv) {
       throw new SecretNotFoundError(key);
@@ -111,7 +113,7 @@ class SecenvSDK {
     }
 
     const identity = await this.loadIdentity();
-    const encryptedMessage = line.value;
+    const encryptedMessage = line.value.slice(ENCRYPTED_PREFIX.length);
     const decrypted = await decryptValue(identity, encryptedMessage);
 
     this.cache.set(key, { value: decrypted, decryptedAt: Date.now() });
@@ -119,6 +121,9 @@ class SecenvSDK {
   }
 
   has(key: string): boolean {
+    if (process.env[key] !== undefined) {
+      return true;
+    }
     this.reloadEnv();
     if (!this.parsedEnv) {
       return false;
@@ -127,11 +132,14 @@ class SecenvSDK {
   }
 
   keys(): string[] {
+    const allKeys = new Set(Object.keys(process.env));
     this.reloadEnv();
-    if (!this.parsedEnv) {
-      return [];
+    if (this.parsedEnv) {
+      for (const key of this.parsedEnv.keys) {
+        allKeys.add(key);
+      }
     }
-    return Array.from(this.parsedEnv.keys);
+    return Array.from(allKeys);
   }
 
   clearCache(): void {
