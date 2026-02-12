@@ -10,6 +10,6 @@
   "explorer.fileNesting.enabled": true,
   "explorer.fileNesting.patterns": {
     "*.md": "$(capture)_*.md",
-    "package.json": ".*, README.md, *.md, *.json, *.yaml"
+    "package.json": ".*, README.md, *.md, *.json, *.yaml, *.cjs"
   }
 }
