@@ -6,8 +6,10 @@ import {
    getPublicKey,
    encrypt,
    decrypt,
+   decryptString,
    getDefaultKeyPath,
    getKeysDir,
+   ensureSecenvDir,
 } from "../../src/age.js"
 import * as fs from "fs"
 import * as path from "path"
@@ -149,5 +151,68 @@ describe("Age Encryption (age.ts)", () => {
       const stats = fs.statSync(keysDir)
       // 0700 is 448 in decimal
       expect(stats.mode & 0o777).toBe(0o700)
+   })
+
+   it("should decrypt string with decryptString() convenience function", async () => {
+      const identity = await generateIdentity()
+      const plaintext = "Hello, decryptString!"
+
+      const encrypted = await encrypt(identity, plaintext)
+      const decrypted = await decryptString(identity, encrypted)
+
+      expect(decrypted).toBe(plaintext)
+      expect(typeof decrypted).toBe("string")
+   })
+
+   it("should decrypt UTF-8 strings with decryptString()", async () => {
+      const identity = await generateIdentity()
+      const plaintext = "🔐 Ñoño 中文 🎌"
+
+      const encrypted = await encrypt(identity, plaintext)
+      const decrypted = await decryptString(identity, encrypted)
+
+      expect(decrypted).toBe(plaintext)
+   })
+
+   it("should decrypt empty string with decryptString()", async () => {
+      const identity = await generateIdentity()
+      const plaintext = ""
+
+      const encrypted = await encrypt(identity, plaintext)
+      const decrypted = await decryptString(identity, encrypted)
+
+      expect(decrypted).toBe("")
+   })
+
+   it("should throw DecryptionError with decryptString() and wrong identity", async () => {
+      const identity1 = await generateIdentity()
+      const identity2 = await generateIdentity()
+      const plaintext = "Secret"
+
+      const encrypted = await encrypt(identity1, plaintext)
+
+      await expect(decryptString(identity2, encrypted)).rejects.toThrow(DecryptionError)
+   })
+
+   it("should create secenv directory with ensureSecenvDir()", async () => {
+      // Clean up any existing directory
+      const keysDir = getKeysDir()
+      if (fs.existsSync(keysDir)) {
+         fs.rmSync(keysDir, { recursive: true, force: true })
+      }
+
+      // Ensure directory exists
+      ensureSecenvDir()
+
+      expect(fs.existsSync(keysDir)).toBe(true)
+      expect(fs.statSync(keysDir).isDirectory()).toBe(true)
+   })
+
+   it("should not fail if secenv directory already exists", async () => {
+      // Create directory first
+      ensureSecenvDir()
+
+      // Should not throw when called again
+      expect(() => ensureSecenvDir()).not.toThrow()
    })
 })
