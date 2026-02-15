@@ -2,6 +2,14 @@
    "name": "secenv",
    "version": "0.1.0",
    "description": "The Breeze: Secret management without the overhead",
+   "repository": {
+      "type": "git",
+      "url": "git+https://github.com/secenv-org/secenv.git"
+   },
+   "bugs": {
+      "url": "https://github.com/secenv-org/secenv/issues"
+   },
+   "homepage": "https://github.com/secenv-org/secenv#readme",
    "type": "module",
    "bin": {
       "secenv": "./bin/secenv"
@@ -15,6 +23,11 @@
          "require": "./lib/index.cjs"
       }
    },
+   "files": [
+      "bin",
+      "lib",
+      "README.md"
+   ],
    "scripts": {
       "build": "bun run scripts/build.js",
       "prepare": "bun run scripts/build.js",
