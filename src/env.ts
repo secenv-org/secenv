@@ -17,11 +17,15 @@ class SecenvSDK {
    #cache: Map<string, CacheEntry> = new Map()
    #cacheTimestamp: number = 0
    #cacheSize: number = 0
-   #envPath: string = ""
    #parsedEnv: ReturnType<typeof parseEnvFile> | null = null
+   #lastPath: string = ""
+
+   get #envPath(): string {
+      return getEnvPath()
+   }
 
    constructor() {
-      this.#envPath = getEnvPath()
+      this.#cache = new Map()
    }
 
    private async loadIdentity(): Promise<string> {
@@ -58,7 +62,15 @@ class SecenvSDK {
    }
 
    private reloadEnv(): void {
-      if (!fs.existsSync(this.#envPath)) {
+      const currentPath = this.#envPath
+
+      // If the path changed (e.g. CWD change), clear cache and force reload
+      if (currentPath !== this.#lastPath) {
+         this.clearCache()
+         this.#lastPath = currentPath
+      }
+
+      if (!fs.existsSync(currentPath)) {
          this.#parsedEnv = null
          this.#cache.clear()
          this.#cacheTimestamp = 0
@@ -66,12 +78,12 @@ class SecenvSDK {
          return
       }
 
-      const stats = fs.statSync(this.#envPath)
+      const stats = fs.statSync(currentPath)
       const newTimestamp = stats.mtimeMs
       const newSize = stats.size
 
-      if (newTimestamp !== this.#cacheTimestamp || newSize !== this.#cacheSize) {
-         this.#parsedEnv = parseEnvFile(this.#envPath)
+      if (newTimestamp !== this.#cacheTimestamp || newSize !== this.#cacheSize || !this.#parsedEnv) {
+         this.#parsedEnv = parseEnvFile(currentPath)
          this.#cacheTimestamp = newTimestamp
          this.#cacheSize = newSize
          this.#cache.clear() // Clear cache when file changes
@@ -165,23 +177,30 @@ class SecenvSDK {
 
 const globalSDK = new SecenvSDK()
 
-export function createSecenv(): SecenvSDK {
-   return new SecenvSDK()
+function wrapInProxy(sdk: SecenvSDK): Secenv {
+   return new Proxy(sdk, {
+      get(target, prop) {
+         const value = Reflect.get(target, prop)
+         if (value !== undefined) {
+            if (typeof value === "function") {
+               return value.bind(target)
+            }
+            return value
+         }
+         if (typeof prop === "string") {
+            return target.get(prop)
+         }
+         return value
+      },
+   }) as unknown as Secenv
 }
 
-export const env = new Proxy(globalSDK, {
-   get(target, prop) {
-      if (typeof prop === "string" && !Reflect.has(target, prop)) {
-         return target.get(prop)
-      }
-      const value = Reflect.get(target, prop)
-      if (typeof value === "function") {
-         return value.bind(target)
-      }
-      return value
-   },
-}) as unknown as { [key: string]: Promise<string> }
+export function createSecenv(): Secenv {
+   return wrapInProxy(new SecenvSDK())
+}
 
-export type Secenv = { [key: string]: Promise<string> }
+export const env = wrapInProxy(globalSDK)
+
+export type Secenv = { [key: string]: Promise<string> } & SecenvSDK
 
 export { SecenvSDK }
