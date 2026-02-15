@@ -6,7 +6,7 @@ import { fileURLToPath } from "url"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
-const BIN_PATH = path.resolve(process.env.SECENV_ORIGINAL_CWD || process.cwd(), "bin/secenvs")
+const BIN_PATH = path.resolve(__dirname, "../../bin/secenvs")
 
 describe("High-Stake Concurrency Hammer", () => {
    let testDir: string
@@ -31,7 +31,7 @@ describe("High-Stake Concurrency Hammer", () => {
 
    it("should handle 500+ parallel write/read operations without race conditions", async () => {
       await runCLI(["init"])
-      
+
       const count = 500
       const workers = []
 
@@ -45,16 +45,18 @@ describe("High-Stake Concurrency Hammer", () => {
       }
 
       const results = await Promise.allSettled(workers)
-      
-      const fulfilled = results.filter(r => r.status === "fulfilled").length
-      const rejected = results.filter(r => r.status === "rejected").length
-      
-      console.log(`Concurrency Results: ${fulfilled} succeeded, ${rejected} failed (expected if lock timed out)`)
+
+      const fulfilled = results.filter((r) => r.status === "fulfilled").length
+      const rejected = results.filter((r) => r.status === "rejected").length
+
+      console.log(
+         `Concurrency Results: ${fulfilled} succeeded, ${rejected} failed (expected if lock timed out)`
+      )
 
       // The critical piece is that the file is NOT corrupted
       const doctor = await runCLI(["doctor"])
       expect(doctor.stdout).toContain("checks passed")
-      
+
       // And we can still read at least some of the keys we set
       const list = await runCLI(["list"])
       expect(list.stdout).toContain("CONC_KEY_")

@@ -21,8 +21,8 @@ describe("Secenv SDK (env.ts)", () => {
   let identity: string;
 
   beforeEach(async () => {
-    testCwd = fs.mkdtempSync(path.join(os.tmpdir(), "secenv-sdk-cwd-"));
-    testHome = fs.mkdtempSync(path.join(os.tmpdir(), "secenv-sdk-home-"));
+    testCwd = fs.mkdtempSync(path.join(os.tmpdir(), "secenvs-sdk-cwd-"));
+    testHome = fs.mkdtempSync(path.join(os.tmpdir(), "secenvs-sdk-home-"));
     originalEnvHome = process.env.SECENV_HOME;
 
     process.chdir(testCwd);
@@ -52,17 +52,17 @@ describe("Secenv SDK (env.ts)", () => {
     expect(value).toBe("process-value");
   });
 
-  it("should return plaintext value from .secenv", async () => {
-    fs.writeFileSync(".secenv", "PLAIN_KEY=plaintext-value\n");
+  it("should return plaintext value from .secenvs", async () => {
+    fs.writeFileSync(".secenvs", "PLAIN_KEY=plaintext-value\n");
     const sdk = createSecenv();
 
     const value = await sdk.get("PLAIN_KEY");
     expect(value).toBe("plaintext-value");
   });
 
-  it("should return decrypted value from .secenv", async () => {
+  it("should return decrypted value from .secenvs", async () => {
     const encrypted = await encrypt(identity, "secret-value");
-    fs.writeFileSync(".secenv", `SECRET_KEY=enc:age:${encrypted}\n`);
+    fs.writeFileSync(".secenvs", `SECRET_KEY=enc:age:${encrypted}\n`);
 
     const sdk = createSecenv();
     const value = await sdk.get("SECRET_KEY");
@@ -70,15 +70,15 @@ describe("Secenv SDK (env.ts)", () => {
   });
 
   it("should throw SecretNotFoundError if key missing in both", async () => {
-    fs.writeFileSync(".secenv", "SOME_KEY=value\n");
+    fs.writeFileSync(".secenvs", "SOME_KEY=value\n");
     const sdk = createSecenv();
 
     await expect(sdk.get("MISSING_KEY")).rejects.toThrow(SecretNotFoundError);
   });
 
-  it("should prioritize process.env over .secenv", async () => {
+  it("should prioritize process.env over .secenvs", async () => {
     process.env.TEST_OVERRIDE = "overridden";
-    fs.writeFileSync(".secenv", "TEST_OVERRIDE=original\n");
+    fs.writeFileSync(".secenvs", "TEST_OVERRIDE=original\n");
 
     const sdk = createSecenv();
     const value = await sdk.get("TEST_OVERRIDE");
@@ -87,7 +87,7 @@ describe("Secenv SDK (env.ts)", () => {
 
   it("should cache decrypted values", async () => {
     const encrypted = await encrypt(identity, "cache-me");
-    fs.writeFileSync(".secenv", `CACHE_KEY=enc:age:${encrypted}\n`);
+    fs.writeFileSync(".secenvs", `CACHE_KEY=enc:age:${encrypted}\n`);
 
     const sdk = createSecenv();
 
@@ -96,15 +96,15 @@ describe("Secenv SDK (env.ts)", () => {
     expect(val1).toBe("cache-me");
 
     // Delete identity - if cached, second call should still work
-    const keyPath = path.join(testHome, ".secenv", "keys", "default.key");
+    const keyPath = path.join(testHome, ".secenvs", "keys", "default.key");
     fs.unlinkSync(keyPath);
 
     const val2 = await sdk.get("CACHE_KEY");
     expect(val2).toBe("cache-me");
   });
 
-  it("should invalidate cache if .secenv is modified", async () => {
-    fs.writeFileSync(".secenv", "VAL=first\n");
+  it("should invalidate cache if .secenvs is modified", async () => {
+    fs.writeFileSync(".secenvs", "VAL=first\n");
     const sdk = createSecenv();
 
     expect(await sdk.get("VAL")).toBe("first");
@@ -112,7 +112,7 @@ describe("Secenv SDK (env.ts)", () => {
     // Small delay to ensure mtime changes
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    fs.writeFileSync(".secenv", "VAL=second\n");
+    fs.writeFileSync(".secenvs", "VAL=second\n");
 
     expect(await sdk.get("VAL")).toBe("second");
   });
@@ -122,11 +122,11 @@ describe("Secenv SDK (env.ts)", () => {
     process.env.SECENV_ENCODED_IDENTITY = encoded;
 
     // Remove local identity file to prove it uses the env var
-    const keyPath = path.join(testHome, ".secenv", "keys", "default.key");
+    const keyPath = path.join(testHome, ".secenvs", "keys", "default.key");
     fs.unlinkSync(keyPath);
 
     const encrypted = await encrypt(identity, "ci-secret");
-    fs.writeFileSync(".secenv", `CI_KEY=enc:age:${encrypted}\n`);
+    fs.writeFileSync(".secenvs", `CI_KEY=enc:age:${encrypted}\n`);
 
     const sdk = createSecenv();
     const value = await sdk.get("CI_KEY");
@@ -134,19 +134,19 @@ describe("Secenv SDK (env.ts)", () => {
   });
 
   it("should throw IdentityNotFoundError if no identity available", async () => {
-    const keyPath = path.join(testHome, ".secenv", "keys", "default.key");
+    const keyPath = path.join(testHome, ".secenvs", "keys", "default.key");
     fs.unlinkSync(keyPath);
 
     const encrypted = await encrypt(identity, "fails");
-    fs.writeFileSync(".secenv", `FAIL_KEY=enc:age:${encrypted}\n`);
+    fs.writeFileSync(".secenvs", `FAIL_KEY=enc:age:${encrypted}\n`);
 
     const sdk = createSecenv();
     await expect(sdk.get("FAIL_KEY")).rejects.toThrow(IdentityNotFoundError);
   });
 
-  it("has() should check both process.env and .secenv", async () => {
+  it("has() should check both process.env and .secenvs", async () => {
     process.env.PROC_KEY = "val";
-    fs.writeFileSync(".secenv", "FILE_KEY=val\n");
+    fs.writeFileSync(".secenvs", "FILE_KEY=val\n");
 
     const sdk = createSecenv();
     expect(sdk.has("PROC_KEY")).toBe(true);
@@ -156,7 +156,7 @@ describe("Secenv SDK (env.ts)", () => {
 
   it("keys() should return all keys", async () => {
     process.env.K1 = "v1";
-    fs.writeFileSync(".secenv", "K2=v2\nK3=v3\n");
+    fs.writeFileSync(".secenvs", "K2=v2\nK3=v3\n");
 
     const sdk = createSecenv();
     const allKeys = sdk.keys();
@@ -167,13 +167,13 @@ describe("Secenv SDK (env.ts)", () => {
   });
 
   it("clearCache() should reset internal state", async () => {
-    fs.writeFileSync(".secenv", "KEY=val1\n");
+    fs.writeFileSync(".secenvs", "KEY=val1\n");
     const sdk = createSecenv();
 
     await sdk.get("KEY");
     sdk.clearCache();
 
-    fs.writeFileSync(".secenv", "KEY=val2\n");
+    fs.writeFileSync(".secenvs", "KEY=val2\n");
     expect(await sdk.get("KEY")).toBe("val2");
   });
 });

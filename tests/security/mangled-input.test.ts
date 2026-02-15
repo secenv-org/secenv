@@ -3,7 +3,11 @@ import * as fs from "fs"
 import * as path from "path"
 import * as os from "os"
 
-const BIN_PATH = path.resolve(process.env.SECENV_ORIGINAL_CWD || process.cwd(), "bin/secenvs")
+import { fileURLToPath } from "url"
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+const BIN_PATH = path.resolve(__dirname, "../../bin/secenvs")
 
 describe("Mangled Input Fuzzing", () => {
    let testDir: string
@@ -30,7 +34,7 @@ describe("Mangled Input Fuzzing", () => {
       fs.writeFileSync(path.join(testDir, ".secenvs"), "THIS IS INVALID CONTENT\n")
       try {
          await runCLI(["list"])
-         fail("Should have failed")
+         throw new Error("Should have failed")
       } catch (e: any) {
          expect(e.stderr).toContain("Invalid line: missing '=' separator")
       }
@@ -40,7 +44,7 @@ describe("Mangled Input Fuzzing", () => {
       fs.writeFileSync(path.join(testDir, ".secenvs"), "=value\n")
       try {
          await runCLI(["list"])
-         fail("Should have failed")
+         throw new Error("Should have failed")
       } catch (e: any) {
          expect(e.stderr).toContain("Invalid line: missing key before '='")
       }
@@ -50,7 +54,7 @@ describe("Mangled Input Fuzzing", () => {
       fs.writeFileSync(path.join(testDir, ".secenvs"), "K1=V1\nK1=V2\n")
       try {
          await runCLI(["list"])
-         fail("Should have failed")
+         throw new Error("Should have failed")
       } catch (e: any) {
          expect(e.stderr).toContain("Duplicate key 'K1'")
       }
@@ -58,11 +62,11 @@ describe("Mangled Input Fuzzing", () => {
 
    it("should handle garbage binary input", async () => {
       // Write some random bytes
-      const bytes = Buffer.from([0xFF, 0xFE, 0xFD, 0x00, 0x01, 0x02])
+      const bytes = Buffer.from([0xff, 0xfe, 0xfd, 0x00, 0x01, 0x02])
       fs.writeFileSync(path.join(testDir, ".secenvs"), bytes)
       try {
          await runCLI(["list"])
-         fail("Should have failed")
+         throw new Error("Should have failed")
       } catch (e: any) {
          // Should fail due to lack of '=' or invalid format
          expect(e.stderr).toBeTruthy()

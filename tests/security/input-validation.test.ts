@@ -8,7 +8,7 @@ import { validateKey, validateValue } from '../../src/validators.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const BIN_PATH = path.resolve(__dirname, '../../bin/secenv');
+const BIN_PATH = path.resolve(__dirname, '../../bin/secenvs');
 
 describe('Input Validation', () => {
   let testDir: string;

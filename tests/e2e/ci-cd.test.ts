@@ -7,7 +7,7 @@ import { createSecenv } from "../../src/env.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const BIN_PATH = path.resolve(__dirname, "../../bin/secenv");
+const BIN_PATH = path.resolve(__dirname, "../../bin/secenvs");
 const PROJECT_ROOT = path.resolve(__dirname, "../..");
 
 describe("CI/CD Scenarios", () => {
@@ -42,14 +42,14 @@ describe("CI/CD Scenarios", () => {
 
     const identityPath = path.join(
       secenvHome,
-      ".secenv",
+      ".secenvs",
       "keys",
       "default.key",
     );
     const identity = fs.readFileSync(identityPath, "utf-8");
     const encodedIdentity = Buffer.from(identity).toString("base64");
 
-    const envEncContent = fs.readFileSync(".secenv", "utf-8");
+    const envEncContent = fs.readFileSync(".secenvs", "utf-8");
 
     // 2. Simulate "CI" environment: new temp dir, no identity file, only env var and .secenv
     const ciDir = fs.mkdtempSync(path.join(os.tmpdir(), "secenv-ci-sim-"));
@@ -57,7 +57,7 @@ describe("CI/CD Scenarios", () => {
       path.join(os.tmpdir(), "secenv-ci-home-sim-"),
     );
 
-    fs.writeFileSync(path.join(ciDir, ".secenv"), envEncContent);
+    fs.writeFileSync(path.join(ciDir, ".secenvs"), envEncContent);
 
     process.chdir(ciDir);
     process.env.SECENV_ENCODED_IDENTITY = encodedIdentity;
@@ -72,7 +72,7 @@ describe("CI/CD Scenarios", () => {
   });
 
   it("should fail gracefully in CI if identity is missing", async () => {
-    fs.writeFileSync(".secenv", "SECRET=enc:age:abc\n");
+    fs.writeFileSync(".secenvs", "SECRET=enc:age:abc\n");
 
     // No local identity, no SECENV_ENCODED_IDENTITY
     process.env.SECENV_HOME = secenvHome; // Empty home
@@ -83,7 +83,7 @@ describe("CI/CD Scenarios", () => {
   });
 
   it("should fail in CI if SECENV_ENCODED_IDENTITY is invalid base64", async () => {
-    fs.writeFileSync(".secenv", "SECRET=enc:age:abc\n");
+    fs.writeFileSync(".secenvs", "SECRET=enc:age:abc\n");
     process.env.SECENV_ENCODED_IDENTITY = "!!!not-base64!!!";
 
     const env = createSecenv();

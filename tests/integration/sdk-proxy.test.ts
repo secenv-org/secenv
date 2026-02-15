@@ -3,12 +3,17 @@ import * as fs from "fs"
 import * as path from "path"
 import * as os from "os"
 import { execa } from "execa"
+import { fileURLToPath } from "url"
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+const projectRoot = path.resolve(__dirname, "../..")
+const originalCwd = process.env.SECENV_ORIGINAL_CWD || projectRoot
 
 describe("SDK Proxy & Isolation Integration", () => {
    let testDir: string
    let secenvHome: string
    let oldHome: string | undefined
-   const originalCwd = process.env.SECENV_ORIGINAL_CWD || process.cwd()
 
    beforeEach(() => {
       testDir = fs.mkdtempSync(path.join(os.tmpdir(), "secenvs-sdk-test-"))
@@ -20,8 +25,10 @@ describe("SDK Proxy & Isolation Integration", () => {
 
    afterEach(() => {
       process.chdir(originalCwd)
-      fs.rmSync(testDir, { recursive: true, force: true })
-      fs.rmSync(secenvHome, { recursive: true, force: true })
+      try {
+         fs.rmSync(testDir, { recursive: true, force: true })
+         fs.rmSync(secenvHome, { recursive: true, force: true })
+      } catch {}
       process.env.SECENV_HOME = oldHome
    })
 
@@ -34,20 +41,29 @@ describe("SDK Proxy & Isolation Integration", () => {
    })
 
    it("should verify the 'env' export works in a fresh process", async () => {
-      fs.writeFileSync(".secenvs", "PROCESS_KEY=process-value\n")
-      const indexPath = path.join(originalCwd, "src/index.ts")
-      const scriptContent = `
-import { env } from '${indexPath}';
-const val = await env.PROCESS_KEY;
-if (val !== 'process-value') {
-    console.error('Expected process-value, got ' + val);
-    process.exit(1);
-}
-console.log(val);
-      `
-      fs.writeFileSync("test-script.ts", scriptContent)
+      fs.writeFileSync(path.join(testDir, ".secenvs"), "PROCESS_KEY=process-value\n")
 
-      const result = await execa("bun", ["test-script.ts"], {
+      const libPath = path.resolve(originalCwd, "lib/index.js")
+      const scriptContent = `
+import { env } from '${libPath}';
+// Small delay to ensure FS consistency in CI environments
+await new Promise(r => setTimeout(r, 100));
+
+try {
+  const val = await env.PROCESS_KEY;
+  if (val !== 'process-value') {
+      console.error('Expected process-value, got ' + val);
+      process.exit(1);
+  }
+  console.log(val);
+} catch (e) {
+  console.error(e);
+  process.exit(1);
+}
+      `
+      fs.writeFileSync(path.join(testDir, "test-script.mjs"), scriptContent)
+
+      const result = await execa("node", ["test-script.mjs"], {
          cwd: testDir,
          env: { ...process.env, SECENV_HOME: secenvHome },
       })

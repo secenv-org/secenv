@@ -8,7 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 describe("Parser (parse.ts)", () => {
-  const testEnvPath = path.join(__dirname, "test.secenv");
+  const testEnvPath = path.join(__dirname, "test.secenvs");
 
   afterEach(() => {
     if (fs.existsSync(testEnvPath)) {

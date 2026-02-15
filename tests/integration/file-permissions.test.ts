@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const BIN_PATH = path.resolve(__dirname, '../../bin/secenv');
+const BIN_PATH = path.resolve(__dirname, '../../bin/secenvs');
 
 describe('File Permissions (Unix)', () => {
   let testDir: string;
@@ -35,7 +35,7 @@ describe('File Permissions (Unix)', () => {
     }
 
     await run(['init']);
-    const keyPath = path.join(secenvHome, '.secenv', 'keys', 'default.key');
+    const keyPath = path.join(secenvHome, '.secenvs', 'keys', 'default.key');
     const stats = fs.statSync(keyPath);
     expect(stats.mode & 0o777).toBe(0o600);
   });
@@ -46,7 +46,7 @@ describe('File Permissions (Unix)', () => {
     }
 
     await run(['init']);
-    const keysDir = path.join(secenvHome, '.secenv', 'keys');
+    const keysDir = path.join(secenvHome, '.secenvs', 'keys');
     const stats = fs.statSync(keysDir);
     expect(stats.mode & 0o777).toBe(0o700);
   });
@@ -57,7 +57,7 @@ describe('File Permissions (Unix)', () => {
     }
 
     await run(['init']);
-    const keyPath = path.join(secenvHome, '.secenv', 'keys', 'default.key');
+    const keyPath = path.join(secenvHome, '.secenvs', 'keys', 'default.key');
     
     // Make it too open
     fs.chmodSync(keyPath, 0o644);

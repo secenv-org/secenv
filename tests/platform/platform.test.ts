@@ -9,7 +9,7 @@ describe("Platform Compatibility", () => {
 
   beforeEach(() => {
     testDir = fs.mkdtempSync(path.join(os.tmpdir(), "secenv-plat-"));
-    envPath = path.join(testDir, ".secenv");
+    envPath = path.join(testDir, ".secenvs");
   });
 
   afterEach(() => {

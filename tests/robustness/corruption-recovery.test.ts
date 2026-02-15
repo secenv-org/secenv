@@ -10,7 +10,7 @@ describe("Corruption Recovery", () => {
 
   beforeEach(() => {
     testDir = fs.mkdtempSync(path.join(os.tmpdir(), "secenv-robustness-"));
-    envPath = path.join(testDir, ".secenv");
+    envPath = path.join(testDir, ".secenvs");
   });
 
   afterEach(() => {

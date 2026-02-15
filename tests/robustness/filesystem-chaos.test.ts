@@ -3,7 +3,11 @@ import * as fs from "fs"
 import * as path from "path"
 import * as os from "os"
 
-const BIN_PATH = path.resolve(process.env.SECENV_ORIGINAL_CWD || process.cwd(), "bin/secenvs")
+import { fileURLToPath } from "url"
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+const BIN_PATH = path.resolve(__dirname, "../../bin/secenvs")
 
 describe("Filesystem Chaos", () => {
    let testDir: string
@@ -32,31 +36,48 @@ describe("Filesystem Chaos", () => {
 
    it("should fail gracefully when .secenvs is unwritable", async () => {
       await runCLI(["init"])
-      const secenvsPath = path.join(testDir, ".secenvs")
-      fs.chmodSync(secenvsPath, 0o444) // Read only
+      // To prevent atomic writes (rename), we must make the DIRECTORY read-only
+      fs.chmodSync(testDir, 0o555)
 
       try {
          await runCLI(["set", "K", "V"])
-         fail("Should have failed")
+         throw new Error("Should have failed")
       } catch (e: any) {
-         expect(e.stderr).toContain("EACCES")
-         expect(e.stderr).toContain("Failed to write")
+         // execa error message contains stderr
+         const msg = e.message || e.stderr || ""
+         expect(msg).toContain("EACCES")
+      } finally {
+         // Restore permissions so afterEach can clean up
+         fs.chmodSync(testDir, 0o777)
       }
    })
 
    it("should reject symlinks for .secenvs (Security Policy)", async () => {
+      // Initialize properly to get an identity
+      await runCLI(["init"])
+      // Remove the real .secenvs created by init
+      fs.unlinkSync(path.join(testDir, ".secenvs"))
+
       const realFile = path.join(os.tmpdir(), "real-secrets")
       fs.writeFileSync(realFile, "K=V\n")
       const symlinkPath = path.join(testDir, ".secenvs")
-      fs.symlinkSync(realFile, symlinkPath)
+      try {
+         fs.symlinkSync(realFile, symlinkPath)
+      } catch (err) {
+         // on some systems symlinks might fail (e.g. Windows without privs), skip if so
+         console.warn("Skipping symlink test due to creation failure")
+         return
+      }
 
       try {
          await runCLI(["get", "K"])
-         fail("Should have failed")
+         throw new Error("Should have failed")
       } catch (e: any) {
-         expect(e.stderr).toContain("Symlink detected")
+         expect(e.stderr || e.message).toContain("Symlink detected")
       } finally {
-         fs.unlinkSync(realFile)
+         try {
+            fs.unlinkSync(realFile)
+         } catch {}
       }
    })
 

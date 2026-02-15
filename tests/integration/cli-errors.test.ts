@@ -6,7 +6,7 @@ import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const BIN_PATH = path.resolve(__dirname, "../../bin/secenv");
+const BIN_PATH = path.resolve(__dirname, "../../bin/secenvs");
 
 describe("CLI Error Handling", () => {
   let testDir: string;
@@ -81,17 +81,17 @@ describe("CLI Error Handling", () => {
     expect(stderr).toContain("Multiline values are not allowed");
   });
 
-  it("should handle corrupted .secenv", async () => {
+  it("should handle corrupted .secenvs", async () => {
     await run(["init"]);
-    fs.writeFileSync(path.join(testDir, ".secenv"), "INVALID_LINE\n");
+    fs.writeFileSync(path.join(testDir, ".secenvs"), "INVALID_LINE\n");
     const { exitCode, stderr } = await run(["get", "KEY"]);
     expect(exitCode).toBe(1);
     expect(stderr).toContain("Invalid line: missing '=' separator");
   });
 
-  it("should handle duplicate keys in .secenv", async () => {
+  it("should handle duplicate keys in .secenvs", async () => {
     await run(["init"]);
-    fs.writeFileSync(path.join(testDir, ".secenv"), "KEY=1\nKEY=2\n");
+    fs.writeFileSync(path.join(testDir, ".secenvs"), "KEY=1\nKEY=2\n");
     const { exitCode, stderr } = await run(["get", "KEY"]);
     expect(exitCode).toBe(1);
     expect(stderr).toContain("Duplicate key 'KEY'");

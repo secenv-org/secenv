@@ -167,6 +167,10 @@ class SecenvSDK {
       return Array.from(allKeys)
    }
 
+   toJSON(): Record<string, unknown> {
+      return {}
+   }
+
    clearCache(): void {
       this.#cache.clear()
       this.#cacheTimestamp = 0

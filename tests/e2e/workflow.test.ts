@@ -7,7 +7,7 @@ import { createSecenv } from "../../src/env.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const BIN_PATH = path.resolve(__dirname, "../../bin/secenv");
+const BIN_PATH = path.resolve(__dirname, "../../bin/secenvs");
 const PROJECT_ROOT = path.resolve(__dirname, "../..");
 
 describe("E2E Workflow", () => {
@@ -41,7 +41,7 @@ describe("E2E Workflow", () => {
     await runCLI(["set", "DB_PASSWORD", "super-secret-password"]);
 
     // 3. Set a plaintext config via CLI (manually adding to .secenv for now since 'set' encrypts by default)
-    fs.appendFileSync(path.join(testDir, ".secenv"), "PORT=5432\n");
+    fs.appendFileSync(path.join(testDir, ".secenvs"), "PORT=5432\n");
 
     // 4. Access via SDK
     // Note: We need to point the SDK to the test environment
@@ -60,7 +60,7 @@ describe("E2E Workflow", () => {
     expect(env.has("NON_EXISTENT")).toBe(false);
   });
 
-  it("should prioritize process.env over .secenv", async () => {
+  it("should prioritize process.env over .secenvs", async () => {
     await runCLI(["init"]);
     await runCLI(["set", "OVERRIDE_ME", "original"]);
 
@@ -81,7 +81,7 @@ describe("E2E Workflow", () => {
 
     const identityPath = path.join(
       secenvHome,
-      ".secenv",
+      ".secenvs",
       "keys",
       "default.key",
     );
@@ -104,7 +104,7 @@ describe("E2E Workflow", () => {
     await runCLI(["init"]);
     await runCLI(["set", "SECRET_1", "val1"]);
     await runCLI(["set", "SECRET_2", "val2"]);
-    fs.appendFileSync(path.join(testDir, ".secenv"), "PLAIN=plain-val\n");
+    fs.appendFileSync(path.join(testDir, ".secenvs"), "PLAIN=plain-val\n");
 
     process.env.SECENV_HOME = secenvHome;
     const env = createSecenv();
@@ -130,12 +130,7 @@ describe("E2E Workflow", () => {
     process.env.SECENV_HOME = secenvHome;
     const env = createSecenv();
 
-    const retrievedBase64 = await env.get("TLS_CERT");
-    expect(retrievedBase64).toBe(certBase64);
-
-    const retrievedCert = Buffer.from(retrievedBase64, "base64").toString(
-      "utf-8",
-    );
+    const retrievedCert = await env.get("TLS_CERT");
     expect(retrievedCert).toBe(cert);
   });
 });

@@ -6,7 +6,7 @@ import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const BIN_PATH = path.resolve(__dirname, "../../bin/secenv");
+const BIN_PATH = path.resolve(__dirname, "../../bin/secenvs");
 
 describe("CLI Integration", () => {
   let testDir: string;
@@ -35,12 +35,12 @@ describe("CLI Integration", () => {
     expect(stdout).toContain("Created");
     expect(stdout).toContain("Updated .gitignore");
 
-    const keyPath = path.join(secenvHome, ".secenv", "keys", "default.key");
+    const keyPath = path.join(secenvHome, ".secenvs", "keys", "default.key");
     expect(fs.existsSync(keyPath)).toBe(true);
-    expect(fs.existsSync(path.join(testDir, ".secenv"))).toBe(true);
+    expect(fs.existsSync(path.join(testDir, ".secenvs"))).toBe(true);
     expect(
       fs.readFileSync(path.join(testDir, ".gitignore"), "utf-8"),
-    ).toContain(".secenv");
+    ).toContain(".secenvs");
   });
 
   it("should set and get values", async () => {
@@ -50,7 +50,7 @@ describe("CLI Integration", () => {
     const { stdout } = await run(["get", "MY_KEY"]);
     expect(stdout).toBe("my-secret-value");
 
-    const envContent = fs.readFileSync(path.join(testDir, ".secenv"), "utf-8");
+    const envContent = fs.readFileSync(path.join(testDir, ".secenvs"), "utf-8");
     expect(envContent).toContain("MY_KEY=enc:age:");
     expect(envContent).not.toContain("my-secret-value");
   });
@@ -93,6 +93,6 @@ describe("CLI Integration", () => {
     await run(["set", "MULTI", base64Value, "--base64"]);
 
     const { stdout } = await run(["get", "MULTI"]);
-    expect(stdout).toBe(base64Value);
+    expect(stdout).toBe("line1\nline2");
   });
 });

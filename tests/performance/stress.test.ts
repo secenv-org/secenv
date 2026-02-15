@@ -7,7 +7,7 @@ import { createSecenv } from "../../src/env.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const BIN_PATH = path.resolve(__dirname, "../../bin/secenv");
+const BIN_PATH = path.resolve(__dirname, "../../bin/secenvs");
 
 describe("Stress Tests", () => {
   let testDir: string;
@@ -24,7 +24,7 @@ describe("Stress Tests", () => {
     delete process.env.SECENV_HOME;
   });
 
-  it("should handle 1000 keys in .secenv", async () => {
+  it("should handle 1000 keys in .secenvs", async () => {
     process.chdir(testDir);
     process.env.SECENV_HOME = secenvHome;
 
@@ -33,7 +33,7 @@ describe("Stress Tests", () => {
     for (let i = 0; i < 1000; i++) {
       lines.push(`KEY_${i}=value_${i}`);
     }
-    fs.writeFileSync(".secenv", lines.join("\n"));
+    fs.writeFileSync(".secenvs", lines.join("\n"));
 
     const env = createSecenv();
 
@@ -53,7 +53,7 @@ describe("Stress Tests", () => {
     process.env.SECENV_HOME = secenvHome;
 
     const largeVal = "a".repeat(1024 * 1024); // 1MB
-    fs.writeFileSync(".secenv", `LARGE=${largeVal}\n`);
+    fs.writeFileSync(".secenvs", `LARGE=${largeVal}\n`);
 
     const env = createSecenv();
     const result = await env.get("LARGE");
@@ -64,7 +64,7 @@ describe("Stress Tests", () => {
   it("should handle many SDK instances without leaking memory (basic check)", async () => {
     process.chdir(testDir);
     process.env.SECENV_HOME = secenvHome;
-    fs.writeFileSync(".secenv", "K=V\n");
+    fs.writeFileSync(".secenvs", "K=V\n");
 
     for (let i = 0; i < 100; i++) {
       const env = createSecenv();

@@ -8,7 +8,7 @@ import { FileError } from "../../src/errors.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const BIN_PATH = path.resolve(__dirname, "../../bin/secenv");
+const BIN_PATH = path.resolve(__dirname, "../../bin/secenvs");
 
 describe("Filesystem Attack Prevention", () => {
   let testDir: string;
@@ -68,7 +68,7 @@ describe("Filesystem Attack Prevention", () => {
   });
 
   it("should handle stale locks automatically", async () => {
-    const envPath = path.join(testDir, ".secenv");
+    const envPath = path.join(testDir, ".secenvs");
     const lockPath = `${envPath}.lock`;
 
     // Create a stale lock with a non-existent PID

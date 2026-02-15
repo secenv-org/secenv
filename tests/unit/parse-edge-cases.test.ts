@@ -10,7 +10,7 @@ describe("Parser Edge Cases (parse.ts)", () => {
 
   beforeEach(() => {
     testDir = fs.mkdtempSync(path.join(os.tmpdir(), "secenv-parse-edge-"));
-    envPath = path.join(testDir, ".secenv");
+    envPath = path.join(testDir, ".secenvs");
   });
 
   afterEach(() => {

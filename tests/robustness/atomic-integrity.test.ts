@@ -6,7 +6,7 @@ import { fileURLToPath } from "url"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
-const BIN_PATH = path.resolve(process.env.SECENV_ORIGINAL_CWD || process.cwd(), "bin/secenvs")
+const BIN_PATH = path.resolve(__dirname, "../../bin/secenvs")
 
 describe("Atomic Write Integrity (Chaos Testing)", () => {
    let testDir: string

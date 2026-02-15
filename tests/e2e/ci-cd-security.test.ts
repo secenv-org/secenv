@@ -7,7 +7,7 @@ import { createSecenv } from "../../src/env.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const BIN_PATH = path.resolve(__dirname, "../../bin/secenv");
+const BIN_PATH = path.resolve(__dirname, "../../bin/secenvs");
 const PROJECT_ROOT = path.resolve(__dirname, "../..");
 
 describe("CI/CD Security", () => {
@@ -37,7 +37,7 @@ describe("CI/CD Security", () => {
   });
 
   it("should not leak secrets to process.env by default", async () => {
-    const envPath = path.join(testDir, ".secenv");
+    const envPath = path.join(testDir, ".secenvs");
     fs.writeFileSync(envPath, "MY_SECRET=enc:age:abc...\n");
 
     // Mock decryption or just use a plaintext one for this test

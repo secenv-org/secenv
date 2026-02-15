@@ -3,7 +3,11 @@ import * as fs from "fs"
 import * as path from "path"
 import * as os from "os"
 
-const BIN_PATH = path.resolve(process.env.SECENV_ORIGINAL_CWD || process.cwd(), "bin/secenvs")
+import { fileURLToPath } from "url"
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+const BIN_PATH = path.resolve(__dirname, "../../bin/secenvs")
 
 describe("Security Invariants (Leak Verification)", () => {
    let testDir: string
@@ -36,7 +40,7 @@ describe("Security Invariants (Leak Verification)", () => {
 
       try {
          await runCLI(["get", "A"])
-         fail("Should have failed")
+         throw new Error("Should have failed")
       } catch (e: any) {
          // Verify secret is not in stderr or stdout
          expect(e.stdout).not.toContain(secretValue)
@@ -69,8 +73,8 @@ describe("Security Invariants (Leak Verification)", () => {
    it("should NOT include secret keys in logs during verbose operations (if we had any)", async () => {
       // Our doctor command should show counts, not values
       await runCLI(["init"])
-      await runCLI(["set", "K", "V"])
+      await runCLI(["set", "K", "SUPER_SECRET_VALUE"])
       const doctor = await runCLI(["doctor"])
-      expect(doctor.stdout).not.toContain("V")
+      expect(doctor.stdout).not.toContain("SUPER_SECRET_VALUE")
    })
 })

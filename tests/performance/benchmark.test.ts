@@ -7,7 +7,7 @@ import { createSecenv } from "../../src/env.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const BIN_PATH = path.resolve(__dirname, "../../bin/secenv");
+const BIN_PATH = path.resolve(__dirname, "../../bin/secenvs");
 
 describe("Performance Benchmarks", () => {
   let testDir: string;
@@ -72,7 +72,7 @@ describe("Performance Benchmarks", () => {
     process.chdir(testDir);
     for (let i = 0; i < 100; i++) {
       // Use fs directly to be faster than CLI calls for setup
-      fs.appendFileSync(".secenv", `KEY_${i}=val_${i}\n`);
+      fs.appendFileSync(".secenvs", `KEY_${i}=val_${i}\n`);
     }
 
     process.env.SECENV_HOME = secenvHome;
