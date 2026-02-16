@@ -21,7 +21,7 @@ class SecenvSDK {
    #lastPath: string = ""
 
    get #envPath(): string {
-      return getEnvPath()
+      return path.resolve(getEnvPath())
    }
 
    constructor() {
@@ -38,9 +38,30 @@ class SecenvSDK {
       }
 
       if (process.env.SECENV_ENCODED_IDENTITY) {
+         const encoded = process.env.SECENV_ENCODED_IDENTITY.trim()
+
+         // Detect URL-safe base64 or other invalid characters for our strict policy
+         if (
+            encoded.includes("-") ||
+            encoded.includes("_") ||
+            encoded.includes(" ") ||
+            encoded.includes("\n") ||
+            encoded.includes("\r")
+         ) {
+            throw new IdentityNotFoundError("SECENV_ENCODED_IDENTITY")
+         }
+
+         const base64Regex = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/
+         if (!base64Regex.test(encoded)) {
+            throw new IdentityNotFoundError("SECENV_ENCODED_IDENTITY")
+         }
+
          try {
-            const decoded = Buffer.from(process.env.SECENV_ENCODED_IDENTITY, "base64")
+            const decoded = Buffer.from(encoded, "base64")
             const privateKey = decoded.toString("utf-8")
+            if (!privateKey.startsWith("AGE-SECRET-KEY-1")) {
+               throw new Error("Invalid age identity")
+            }
             this.#identity = privateKey
             return this.#identity
          } catch (error) {

@@ -46,7 +46,8 @@ describe("Advanced Edge Cases", () => {
          const limit = 5 * 1024 * 1024
          const value = "x".repeat(limit)
 
-         await expect(setKey(path.join(testDir, ".secenvs"), "LARGE", value)).rejects.toThrow(ValidationError)
+         // Should succeed (limit is inclusive)
+         await expect(setKey(path.join(testDir, ".secenvs"), "LARGE", value)).resolves.not.toThrow()
       })
 
       it("should handle value just under 5MB limit", async () => {

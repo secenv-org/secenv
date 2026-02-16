@@ -29,7 +29,9 @@ import {
    FileError,
    EncryptionError,
    SecenvError,
+   ValidationError,
 } from "./errors.js"
+import { validateKey, validateValue } from "./validators.js"
 
 const ENCRYPTED_PREFIX = "enc:age:"
 
@@ -63,6 +65,17 @@ function printInfo(msg: string) {
 }
 
 async function promptSecret(promptText: string): Promise<string> {
+   if (!process.stdin.isTTY) {
+      // For large piped input, readline might have limits.
+      // Read everything from stdin synchronously if not a TTY.
+      try {
+         const data = fs.readFileSync(0, "utf-8")
+         return data.replace(/\r?\n$/, "") // Remove only the last newline
+      } catch (e) {
+         // Fallback to readline if readFileSync(0) fails
+      }
+   }
+
    const rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
@@ -120,30 +133,19 @@ async function cmdInit() {
 }
 
 async function cmdSet(key: string, value?: string, isBase64: boolean = false) {
+   validateKey(key)
+
    if (!identityExists()) {
       throw new IdentityNotFoundError(getDefaultKeyPath())
    }
 
    let secretValue = value
 
-   if (!secretValue) {
+   if (secretValue === undefined) {
       secretValue = await promptSecret(`Enter value for ${key}: `)
    }
 
-   if (!secretValue) {
-      throw new EncryptionError("Value cannot be empty")
-   }
-
-   if (isBase64) {
-      try {
-         // Validate base64
-         Buffer.from(secretValue, "base64")
-      } catch (e) {
-         throw new EncryptionError("Invalid base64 value")
-      }
-   } else if (secretValue.includes("\n") || secretValue.includes("\r")) {
-      throw new EncryptionError("Multiline values are not allowed. Use --base64 for binary data.")
-   }
+   validateValue(secretValue, { isBase64 })
 
    const identity = await loadIdentity()
    const dataToEncrypt = isBase64 ? Buffer.from(secretValue, "base64") : secretValue
@@ -156,6 +158,8 @@ async function cmdSet(key: string, value?: string, isBase64: boolean = false) {
 }
 
 async function cmdGet(key: string) {
+   validateKey(key)
+
    if (!identityExists()) {
       throw new IdentityNotFoundError(getDefaultKeyPath())
    }
@@ -200,6 +204,8 @@ async function cmdList() {
 }
 
 async function cmdDelete(key: string) {
+   validateKey(key)
+
    const envPath = getEnvPath()
 
    if (!fs.existsSync(envPath)) {
@@ -218,14 +224,22 @@ async function cmdDelete(key: string) {
 }
 
 async function cmdRotate(key: string, newValue?: string) {
-   let secretValue = newValue
+   validateKey(key)
 
-   if (!secretValue) {
-      secretValue = await promptSecret(`Enter new value for ${key}: `)
+   const envPath = getEnvPath()
+   if (!fs.existsSync(envPath)) {
+      throw new SecretNotFoundError(key)
    }
 
-   if (!secretValue) {
-      throw new EncryptionError("Value cannot be empty")
+   const parsed = parseEnvFile(envPath)
+   if (!findKey(parsed, key)) {
+      throw new SecretNotFoundError(key)
+   }
+
+   let secretValue = newValue
+
+   if (secretValue === undefined) {
+      secretValue = await promptSecret(`Enter new value for ${key}: `)
    }
 
    await cmdSet(key, secretValue)
@@ -281,31 +295,33 @@ async function cmdDoctor() {
          const isUnix = process.platform !== "win32"
 
          if (isUnix && (stats.mode & 0o777) !== 0o600) {
-            printWarning(
-               `Identity: ${identityPath} (exists, but permissions should be 0600, found ${(stats.mode & 0o777).toString(8)})`
+            print(
+               `⚠ Identity: ${identityPath} (exists, but permissions should be 0600, found ${(stats.mode & 0o777).toString(8)})`,
+               "yellow",
+               false
             )
          } else {
-            printSuccess(`Identity: ${identityPath}`)
+            print(`✓ Identity: ${identityPath}`, "green", false)
          }
 
          const identity = await loadIdentity()
          await getPublicKey(identity)
-         printSuccess(`Identity: ${identityPath}`)
+         print(`✓ Identity: ${identityPath}`, "green", false)
          passed++
       } catch (error) {
-         printError(`Identity: ${identityPath} (invalid)`)
+         print(`✗ Identity: ${identityPath} (invalid)`, "red", false)
       }
    } else {
-      printError(`Identity: ${identityPath} (not found)`)
+      print(`✗ Identity: ${identityPath} (not found)`, "red", false)
    }
 
    checks++
    const envPath = getEnvPath()
    if (fs.existsSync(envPath)) {
-      printSuccess(`File: ${envPath} (exists)`)
+      print(`✓ File: ${envPath} (exists)`, "green", false)
       passed++
    } else {
-      printWarning(`File: ${envPath} (not found)`)
+      print(`⚠ File: ${envPath} (not found)`, "yellow", false)
       passed++
    }
 
@@ -313,19 +329,21 @@ async function cmdDoctor() {
    if (fs.existsSync(envPath)) {
       try {
          const parsed = parseEnvFile(envPath)
-         printSuccess(
-            `Syntax: ${parsed.lines.length} lines, ${parsed.encryptedCount} encrypted, ${parsed.plaintextCount} plaintext`
+         print(
+            `✓ Syntax: ${parsed.lines.length} lines, ${parsed.encryptedCount} encrypted, ${parsed.plaintextCount} plaintext`,
+            "green",
+            false
          )
          passed++
       } catch (error) {
          if (error instanceof ParseError) {
-            printError(`Syntax: Line ${error.line}: ${error.message}`)
+            print(`✗ Syntax: Line ${error.line}: ${error.message}`, "red", false)
          } else {
-            printError(`Syntax: ${error}`)
+            print(`✗ Syntax: ${error}`, "red", false)
          }
       }
    } else {
-      print(`Syntax: (no file)`)
+      print(`Syntax: (no file)`, "reset", false)
       passed++
    }
 
@@ -349,16 +367,16 @@ async function cmdDoctor() {
          }
 
          if (failedCount === 0) {
-            printSuccess(`Decryption: ${decryptedCount}/${decryptedCount} keys verified`)
+            print(`✓ Decryption: ${decryptedCount}/${decryptedCount} keys verified`, "green", false)
             passed++
          } else {
-            printError(`Decryption: ${decryptedCount} succeeded, ${failedCount} failed`)
+            print(`✗ Decryption: ${decryptedCount} succeeded, ${failedCount} failed`, "red", false)
          }
       } catch (error) {
-         printError(`Decryption: ${error}`)
+         print(`✗ Decryption: ${error}`, "red", false)
       }
    } else {
-      print(`Decryption: (skipped - no identity or file)`)
+      print(`Decryption: (skipped - no identity or file)`, "reset", false)
       passed++
    }
 
@@ -471,6 +489,14 @@ async function main() {
       throw error
    }
 }
+
+// Graceful exit on signals
+process.on("SIGINT", () => {
+   process.exit(130)
+})
+process.on("SIGTERM", () => {
+   process.exit(143)
+})
 
 main().catch((error) => {
    printError(error.message)

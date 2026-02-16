@@ -255,7 +255,7 @@ export async function writeAtomic(filePath: string, content: string): Promise<vo
 }
 
 async function writeAtomicRaw(filePath: string, content: string): Promise<void> {
-   const tmpPath = `${filePath}.tmp.${Date.now()}`
+   const tmpPath = `${filePath}.tmp.${Date.now()}.${process.pid}.${Math.floor(Math.random() * 1000000)}`
    try {
       await fs.promises.writeFile(tmpPath, content, { mode: 0o644 })
       const fd = await fs.promises.open(tmpPath, "r")

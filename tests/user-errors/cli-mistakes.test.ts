@@ -213,7 +213,11 @@ describe("User Blunder: CLI Mistakes", () => {
          }).catch(() => ({ timeout: true }))
 
          // Either cancelled or timed out
-         expect((result as any).timeout || (result as any).stdout?.includes("cancelled")).toBeTruthy()
+         expect(
+            (result as any).timedOut ||
+               (result as any).timeout ||
+               (result as any).stdout?.includes("cancelled")
+         ).toBeTruthy()
       }, 5000)
 
       it("should export empty file with --force", async () => {
@@ -234,7 +238,7 @@ describe("User Blunder: CLI Mistakes", () => {
          // Create a 6MB value
          const hugeValue = "x".repeat(6 * 1024 * 1024)
 
-         const { exitCode, stderr } = await runCLI(["set", "KEY", hugeValue])
+         const { exitCode, stderr } = await runCLI(["set", "KEY"], hugeValue)
 
          expect(exitCode).toBe(1)
          expect(stderr).toContain("exceeds")

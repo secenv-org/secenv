@@ -1,6 +1,7 @@
 import { ValidationError } from "./errors.js"
 
-const KEY_REGEX = /^[A-Z0-9_]+$/
+const KEY_REGEX = /^[A-Z][A-Z0-9_]*$/
+const MAX_KEY_LENGTH = 64
 const MAX_VALUE_SIZE = 5 * 1024 * 1024 // 5MB
 
 const WINDOWS_RESERVED_NAMES = new Set([
@@ -34,16 +35,36 @@ export function validateKey(key: string): void {
    }
    if (!KEY_REGEX.test(key)) {
       throw new ValidationError(
-         `Invalid key: '${key}'. Keys must only contain uppercase letters, numbers, and underscores (^[A-Z0-9_]+$).`
+         `Invalid key: '${key}'. Keys must start with an uppercase letter and only contain uppercase letters, numbers, and underscores (^[A-Z][A-Z0-9_]*$).`
       )
+   }
+   if (key.length > MAX_KEY_LENGTH) {
+      throw new ValidationError(`Key '${key}' exceeds maximum length of ${MAX_KEY_LENGTH} characters`)
    }
    if (WINDOWS_RESERVED_NAMES.has(key)) {
       throw new ValidationError(`Invalid key: '${key}' is a reserved system name.`)
    }
 }
 
-export function validateValue(value: string): void {
+export function validateValue(value: string, options: { isBase64?: boolean } = {}): void {
+   if (!value && value !== "") {
+      return // Allow undefined/null if handled elsewhere
+   }
+
+   if (value === "") {
+      throw new ValidationError("Value cannot be empty")
+   }
+
    if (Buffer.byteLength(value, "utf-8") > MAX_VALUE_SIZE) {
       throw new ValidationError(`Value size exceeds maximum limit of 5MB`)
+   }
+
+   if (options.isBase64) {
+      const base64Regex = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/
+      if (!base64Regex.test(value)) {
+         throw new ValidationError("Invalid base64 value")
+      }
+   } else if (value.includes("\n") || value.includes("\r")) {
+      throw new ValidationError("Multiline values are not allowed. Use --base64 for binary data.")
    }
 }

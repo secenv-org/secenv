@@ -11,16 +11,31 @@ const __dirname = path.dirname(__filename)
 
 describe("User Blunder: CI/Environment Variable Issues", () => {
    let testDir: string
+   let secenvHome: string
+   let originalCwd: string
    let originalEnvHome: string | undefined
 
    beforeEach(() => {
+      originalCwd = process.cwd()
       testDir = fs.mkdtempSync(path.join(os.tmpdir(), "secenv-ci-test-"))
+      secenvHome = fs.mkdtempSync(path.join(os.tmpdir(), "secenv-ci-home-"))
       originalEnvHome = process.env.SECENV_HOME
       delete process.env.SECENV_ENCODED_IDENTITY
-      delete process.env.SECENV_HOME
+      process.env.SECENV_HOME = secenvHome
+      process.chdir(testDir)
    })
 
    afterEach(() => {
+      process.chdir(originalCwd)
+      process.env.SECENV_HOME = originalEnvHome
+      try {
+         fs.rmSync(testDir, { recursive: true, force: true })
+         fs.rmSync(secenvHome, { recursive: true, force: true })
+      } catch (e) {}
+   })
+
+   afterEach(() => {
+      process.chdir(originalCwd)
       process.env.SECENV_HOME = originalEnvHome
       delete process.env.SECENV_ENCODED_IDENTITY
       try {
@@ -81,8 +96,7 @@ describe("User Blunder: CI/Environment Variable Issues", () => {
    it("should prefer SECENV_ENCODED_IDENTITY over file identity when both present", async () => {
       // Create a file-based identity
       const fileIdentity = await generateIdentity()
-      process.env.SECENV_HOME = testDir
-      const keysDir = path.join(testDir, ".secenvs", "keys")
+      const keysDir = path.join(secenvHome, ".secenvs", "keys")
       fs.mkdirSync(keysDir, { recursive: true })
       fs.writeFileSync(path.join(keysDir, "default.key"), fileIdentity)
 
