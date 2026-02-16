@@ -496,10 +496,14 @@ async function main() {
 
 // Graceful exit on signals
 process.on("SIGINT", () => {
+   const { cleanupTempFiles } = require("./parse.js")
+   cleanupTempFiles()
    process.stdout.write("\n")
    process.exit(130)
 })
 process.on("SIGTERM", () => {
+   const { cleanupTempFiles } = require("./parse.js")
+   cleanupTempFiles()
    process.exit(143)
 })
 

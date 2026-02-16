@@ -23,6 +23,9 @@ export interface ParsedEnv {
 export const ENCRYPTED_PREFIX = "enc:age:"
 const VAULT_PREFIX = "vault:"
 
+// Track active temp files for cleanup on signal/error
+const activeTempFiles = new Set<string>()
+
 export function isEncryptedValue(value: string): boolean {
    return value.startsWith(ENCRYPTED_PREFIX)
 }
@@ -197,7 +200,7 @@ export async function deleteKey(filePath: string, key: string): Promise<void> {
 async function withLock(filePath: string, fn: () => Promise<void> | void): Promise<void> {
    const lockPath = `${filePath}.lock`
    let lockHandle: fs.promises.FileHandle | null = null
-   let retries = 100
+   let retries = 500
    let delay = 10
 
    while (retries > 0) {
@@ -270,13 +273,16 @@ export async function writeAtomic(filePath: string, content: string): Promise<vo
 
 async function writeAtomicRaw(filePath: string, content: string): Promise<void> {
    const tmpPath = `${filePath}.tmp.${Date.now()}.${process.pid}.${Math.floor(Math.random() * 1000000)}`
+   activeTempFiles.add(tmpPath)
    try {
       await fs.promises.writeFile(tmpPath, content, { mode: 0o644 })
       const fd = await fs.promises.open(tmpPath, "r")
       await fd.sync()
       await fd.close()
       await fs.promises.rename(tmpPath, filePath)
+      activeTempFiles.delete(tmpPath)
    } catch (error) {
+      activeTempFiles.delete(tmpPath)
       try {
          if (fs.existsSync(tmpPath)) {
             await fs.promises.unlink(tmpPath)
@@ -284,6 +290,18 @@ async function writeAtomicRaw(filePath: string, content: string): Promise<void> 
       } catch {}
       throw new FileError(`Failed to write ${filePath}: ${error}`)
    }
+}
+
+export function cleanupTempFiles(): void {
+   // Clean up any active temp files synchronously (for signal handlers)
+   for (const tmpPath of activeTempFiles) {
+      try {
+         if (fs.existsSync(tmpPath)) {
+            fs.unlinkSync(tmpPath)
+         }
+      } catch {}
+   }
+   activeTempFiles.clear()
 }
 
 export function getEnvPath(): string {
