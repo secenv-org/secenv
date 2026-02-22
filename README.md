@@ -56,6 +56,7 @@ secenvs vault <cmd>       # Global vault (set, get, list, delete)
 secenvs migrate [file]    # Migrate an existing .env file
 secenvs run -- <cmd>      # Inject secrets into any subprocess (Python, Go, etc.)
 secenvs install-hooks     # Install git pre-commit hooks to block plaintext .env files
+secenvs uninstall-hooks   # Remove the git pre-commit hooks
 secenvs doctor            # Verify setup and encryption
 secenvs key export        # Export private key for CI
 ```
@@ -221,14 +222,18 @@ leaves your machine.
 
 ## Polyglot Support (Non-JS Languages)
 
-`secenvs` isn't just for Node.js. Use the native cross-platform CLI runner to seamlessly inject decrypted secrets into **any** subprocess, script, or language (Python, Go, Rust, Ruby, Docker).
+`secenvs` isn't just for Node.js. Use the native cross-platform CLI runner to seamlessly inject decrypted
+secrets into **any** subprocess, script, or language (Python, Go, Rust, Ruby, Docker).
 
 ```bash
 secenvs run -- python app.py
-secenvs run -- ./deploy.sh
+secenvs run -- go run main.go
+secenvs run -- npm run dev
 ```
 
-Under the hood, `secenvs` securely spawns the process with the decrypted values injected straight into memory. Your code simply reads from standard environment variables (e.g., `os.environ['API_KEY']`), keeping your non-JS codebase 100% wrapper-free.
+Under the hood, `secenvs` securely spawns the process with the decrypted values injected straight into memory.
+Your code simply reads from standard environment variables (e.g., `os.environ['API_KEY']`), keeping your
+non-JS codebase 100% wrapper-free.
 
 ## Git Hook Safety Net
 
@@ -237,9 +242,13 @@ Never accidentally commit a plaintext `.env` file to your repository again.
 ```bash
 # Install the secenvs pre-commit hook
 secenvs install-hooks
+
+# To remove the hook later
+secenvs uninstall-hooks
 ```
 
-This installs a lightweight, native Git pre-commit hook that actively scans your commits and blocks the transaction if it detects any hardcoded `.env` files trying to leak into your Git history.
+This installs a lightweight, native Git pre-commit hook that actively scans your commits and blocks the
+transaction if it detects any hardcoded `.env` files trying to leak into your Git history.
 
 ## CI/CD Integration
 

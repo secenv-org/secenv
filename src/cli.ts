@@ -39,6 +39,7 @@ import {
    VaultError,
 } from "./errors.js"
 import { validateKey, validateValue } from "./validators.js"
+import { installHooks, uninstallHooks } from "./hooks.js"
 
 const ENCRYPTED_PREFIX = "enc:age:"
 
@@ -614,6 +615,26 @@ async function cmdMigrate(filePath: string = ".env", auto: boolean = false) {
    }
 }
 
+async function cmdInstallHooks() {
+   const result = installHooks(process.cwd())
+   if (result.success) {
+      printSuccess(result.message)
+   } else {
+      printError(result.message)
+      process.exit(1)
+   }
+}
+
+async function cmdUninstallHooks() {
+   const result = uninstallHooks(process.cwd())
+   if (result.success) {
+      printSuccess(result.message)
+   } else {
+      printError(result.message)
+      process.exit(1)
+   }
+}
+
 async function cmdRun(runArgs: string[]) {
    if (runArgs.length === 0) {
       throw new Error("Missing command. Usage: secenvs run -- <command> [args...]")
@@ -822,6 +843,14 @@ async function main() {
             break
          }
 
+         case "install-hooks":
+            await cmdInstallHooks()
+            break
+
+         case "uninstall-hooks":
+            await cmdUninstallHooks()
+            break
+
          case "doctor":
             await cmdDoctor()
             break
@@ -845,6 +874,8 @@ async function main() {
             print("  doctor            Health check: identity, file integrity, decryption")
             print("  migrate [file]    Migrate an existing .env file interactively")
             print("  run -- <cmd>      Run an arbitrary command with decrypted secrets injected")
+            print("  install-hooks     Install git pre-commit hooks to block plaintext .env files")
+            print("  uninstall-hooks   Remove the git pre-commit hooks")
             print("  trust <pubkey>    Add a recipient; re-encrypts all secrets")
             print("  untrust <pubkey>  Remove a recipient; re-encrypts all secrets")
             print("  vault <cmd>       Global vault: set, get, list, delete")

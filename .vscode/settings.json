@@ -7,6 +7,8 @@
     "**/Thumbs.db": true,
     "**/node_modules": true,
     ".github": true,
+    "lib": true,
+    "bin": true,
     ".vscode": true,
   },
   "explorer.fileNesting.enabled": true,
