@@ -614,6 +614,48 @@ async function cmdMigrate(filePath: string = ".env", auto: boolean = false) {
    }
 }
 
+async function cmdRun(runArgs: string[]) {
+   if (runArgs.length === 0) {
+      throw new Error("Missing command. Usage: secenvs run -- <command> [args...]")
+   }
+
+   const [command, ...args] = runArgs
+
+   // Dynamic import to avoid loading env on other commands unless necessary
+   const { env } = await import("./env.js")
+   const { spawnSync } = await import("node:child_process")
+
+   // 1. Fetch and decrypt all available keys
+   const decryptedEnv: Record<string, string> = {}
+   for (const key of env.keys()) {
+      try {
+         decryptedEnv[key] = await env[key]
+      } catch (error) {
+         if (error instanceof SecretNotFoundError) {
+            continue
+         }
+         throw error
+      }
+   }
+
+   // 2. Merge decrypted secrets into process.env
+   const childEnv = { ...process.env, ...decryptedEnv }
+
+   // 3. Spawn child process synchronously
+   const result = spawnSync(command, args, {
+      stdio: "inherit",
+      env: childEnv,
+      shell: process.platform === "win32", // Windows prefers shell: true for many commands, UNIX standardizes on false as default but we can keep it false there if direct binary. But for broad polyglot support, `shell: true` or `shell: false`? We'll leave it `shell: true` to handle aliases like `npm run ...` smoothly cross-platform, though `node:child_process` handles `npm.cmd` internally if we just don't use it. We'll stick to true.
+   })
+
+   // 4. Handle exit codes and signals seamlessly
+   if (result.signal) {
+      process.kill(process.pid, result.signal)
+   }
+
+   process.exit(result.status ?? 1)
+}
+
 async function main() {
    const args = process.argv.slice(2)
    const command = args[0] || "help"
@@ -770,6 +812,16 @@ async function main() {
             break
          }
 
+         case "run": {
+            const dashDashIndex = process.argv.indexOf("--")
+            if (dashDashIndex === -1) {
+               throw new Error("Missing '--' separator. Usage: secenvs run -- <command> [args...]")
+            }
+            const runArgs = process.argv.slice(dashDashIndex + 1)
+            await cmdRun(runArgs)
+            break
+         }
+
          case "doctor":
             await cmdDoctor()
             break
@@ -792,6 +844,7 @@ async function main() {
             print("  key export        Export private key for CI/CD")
             print("  doctor            Health check: identity, file integrity, decryption")
             print("  migrate [file]    Migrate an existing .env file interactively")
+            print("  run -- <cmd>      Run an arbitrary command with decrypted secrets injected")
             print("  trust <pubkey>    Add a recipient; re-encrypts all secrets")
             print("  untrust <pubkey>  Remove a recipient; re-encrypts all secrets")
             print("  vault <cmd>       Global vault: set, get, list, delete")
