@@ -224,4 +224,58 @@ describe("Age Encryption (age.ts)", () => {
       // Should not throw when called again
       expect(() => ensureSecenvDir()).not.toThrow()
    })
+
+   it("should encrypt for multiple recipients and each can decrypt", async () => {
+      const identity1 = await generateIdentity()
+      const identity2 = await generateIdentity()
+      const identity3 = await generateIdentity()
+      const pub1 = await getPublicKey(identity1)
+      const pub2 = await getPublicKey(identity2)
+      const pub3 = await getPublicKey(identity3)
+      const plaintext = "shared-secret-for-all"
+
+      // Encrypt once for all three recipients
+      const encrypted = await encrypt([pub1, pub2, pub3], plaintext)
+
+      // All three must be able to decrypt it independently
+      const dec1 = await decrypt(identity1, encrypted)
+      const dec2 = await decrypt(identity2, encrypted)
+      const dec3 = await decrypt(identity3, encrypted)
+
+      expect(dec1.toString()).toBe(plaintext)
+      expect(dec2.toString()).toBe(plaintext)
+      expect(dec3.toString()).toBe(plaintext)
+   })
+
+   it("should encrypt for multiple recipients — non-recipient cannot decrypt", async () => {
+      const identity1 = await generateIdentity()
+      const identity2 = await generateIdentity()
+      const outsider = await generateIdentity()
+      const pub1 = await getPublicKey(identity1)
+      const pub2 = await getPublicKey(identity2)
+      const plaintext = "two-recipient-secret"
+
+      const encrypted = await encrypt([pub1, pub2], plaintext)
+
+      // Outsider (not a recipient) must fail
+      await expect(decrypt(outsider, encrypted)).rejects.toThrow(DecryptionError)
+   })
+
+   it("should produce different ciphertext on each encrypt call (randomness)", async () => {
+      const identity = await generateIdentity()
+      const pubkey = await getPublicKey(identity)
+      const plaintext = "same-message"
+
+      const enc1 = await encrypt([pubkey], plaintext)
+      const enc2 = await encrypt([pubkey], plaintext)
+
+      // Each encryption is randomised — ciphertexts should differ
+      expect(enc1).not.toBe(enc2)
+
+      // But both should decrypt to the same plaintext
+      const dec1 = await decrypt(identity, enc1)
+      const dec2 = await decrypt(identity, enc2)
+      expect(dec1.toString()).toBe(plaintext)
+      expect(dec2.toString()).toBe(plaintext)
+   })
 })
