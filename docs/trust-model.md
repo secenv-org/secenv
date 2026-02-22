@@ -7,9 +7,10 @@ team access. This document explains how the trust model works and answers common
 
 The recipient list is stored directly within the `.secenvs` file using the `_RECIPIENT` key.
 
-- **Authoritative Source:** The CLI reads these metadata lines every time you run `secenvs set`, `rotate`, or `trust`.
-- **Public Keys Only:** These lines contain no sensitive data. It is perfectly safe (and required) to commit the
-  `.secenvs` file to Git to share access.
+- **Authoritative Source:** The CLI reads these metadata lines every time you run `secenvs set`, `rotate`, or
+  `trust`.
+- **Public Keys Only:** These lines contain no sensitive data. It is perfectly safe (and required) to commit
+  the `.secenvs` file to Git to share access.
 
 ## Common Scenario: The "Snooping" Attempt
 
@@ -24,9 +25,9 @@ Encryption is a physical transformation of data. When you "untrust" someone, the
 in the `.secenvs` file using only the _remaining_ public keys.
 
 1. **Re-encryption:** The data is physically wrapped into a new format that only authorized keys can open.
-2. **The "List" vs. the "Data":** Even if an unauthorized person adds their key as a `_RECIPIENT` in `.secenvs`,
-   the actual ciphertext strings for existing secrets were never made for them. Their private key will fail to
-   open the lock because the physical lock doesn't recognize them.
+2. **The "List" vs. the "Data":** Even if an unauthorized person adds their key as a `_RECIPIENT` in
+   `.secenvs`, the actual ciphertext strings for existing secrets were never made for them. Their private key
+   will fail to open the lock because the physical lock doesn't recognize them.
 
 ## Social Security & Git
 
@@ -58,3 +59,17 @@ A key in the recipients list only gains access to a secret when:
 
 By ensuring all changes to the recipient list go through a Pull Request, you maintain a perfect audit trail of
 who had access to what and when.
+
+## Defense-in-Depth: Git Pre-Commit Hooks
+
+While `secenvs` encrypts variables directly, accidents can still happen—such as inadvertently committing a
+plaintext `.env` file containing temporary unencrypted credentials.
+
+By running `secenvs install-hooks`, a pre-commit hook is deployed directly into your local `.git/hooks`
+directory.
+
+- **Proactive Blocking:** This hook scans the files included in your commit explicitly looking for hardcoded
+  `# secenvs-plaintext` fallbacks or trailing `.env` files.
+- **Fail-Safe Mechanism:** It will block the entire `git commit` transaction if a leak is detected,
+  effectively providing an offline, local security barrier without relying on a remote CI pipeline to catch
+  the mistake after the fact.

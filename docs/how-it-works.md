@@ -51,3 +51,28 @@ key differences:
   them from being serialized or easily leaked via `console.log(sdk)`.
 - **Atomic Renames:** File writes use a "write-to-temp-then-rename" pattern to ensure that even if a crash
   occurs during a write, your configuration files are never left in a corrupted state.
+
+## The Polyglot Runner
+
+The `secenvs run` command allows you to use your encrypted `.secenvs` secrets in completely non-Node.js
+environments (Python, Go, rust, bash, etc.).
+
+When you execute `secenvs run -- command`:
+
+1. The CLI loads your local `.secenvs` file.
+2. It parses and decrypts the encrypted values into memory.
+3. It spawns the child process (`command`) using `child_process.spawn`.
+4. The decrypted environment variables are injected directly into the **memory space** of the child process
+   (`env` option).
+5. The decrypted secrets are never written to disk, keeping your `.env` variables secure while being readily
+   available to non-JS tools.
+
+## The Migration Engine
+
+The `secenvs migrate` interactive utility safely migrates legacy `.env` files:
+
+1. It uses `dotenv`'s parser to safely read the existing plaintext tokens.
+2. Through interactive prompts, you decide the fate of each key (e.g. encrypt for project, send to global
+   vault, or leave as plaintext).
+3. The engine uses our core encryption primitives to securely transition the data to the `.secenvs` format,
+   ensuring zero plaintext residual files (if you allow it to delete the old `.env`).

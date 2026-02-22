@@ -148,8 +148,8 @@ try {
 
 ## 5. The `.secenvs` Format (Phase 1)
 
-**NO recipient header** in Phase 1 (implicit single recipient = `default.key`). 
-_Note: Phase 2 introduces the unified format using `_RECIPIENT=key` lines._
+**NO recipient header** in Phase 1 (implicit single recipient = `default.key`). _Note: Phase 2 introduces the
+unified format using `_RECIPIENT=key` lines._
 
 ```env
 DATABASE_URL=enc:age:AGE-SECRET-KEY-1XYZ...[encrypted_blob]
@@ -224,7 +224,7 @@ Phase 1 is intentionally minimal:
 - ❌ Polyglot wrapper (`secenvs run --`)
 - ❌ Git pre-commit hooks
 
-These are **Phase 2** features, most of which are now implemented (see `README.md`).
+These are **Phase 2** features, all of which are now strictly implemented and live (see `README.md`).
 
 ---
 

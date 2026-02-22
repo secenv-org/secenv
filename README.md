@@ -250,6 +250,25 @@ secenvs uninstall-hooks
 This installs a lightweight, native Git pre-commit hook that actively scans your commits and blocks the
 transaction if it detects any hardcoded `.env` files trying to leak into your Git history.
 
+## Migration Engine
+
+If you have an existing project with a `.env` file, `secenvs` makes it incredibly easy to migrate to our
+encrypted `.secenvs` format.
+
+```bash
+# Interactive migration
+secenvs migrate
+
+# Migrate a specific file
+secenvs migrate .env.local
+
+# Dry run (see what would change without actually writing to disk)
+secenvs migrate --dry-run
+```
+
+The migration engine will parse your existing file, prompt for how you want to handle each key (e.g. encrypt
+it, ignore it, or move it to plaintext config), and safely output the secure `.secenvs` file.
+
 ## CI/CD Integration
 
 ### 1. Export your identity
