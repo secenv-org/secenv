@@ -11,12 +11,15 @@ import {
 } from "./age.js"
 import { withLock, writeAtomicRaw } from "./parse.js"
 import { VaultError, IdentityNotFoundError } from "./errors.js"
-import { sanitizePath, ensureSafeDir } from "./filesystem.js"
+import { sanitizePath, ensureSafeDir, safeReadFile } from "./filesystem.js"
+import { validateKey, validateValue } from "./validators.js"
 
 const SECENV_DIR = ".secenvs"
 const VAULT_FILE = "vault.age"
 
 let vaultCache: Map<string, string> | null = null
+let vaultLastMtime: number = 0
+let vaultLastSize: number = 0
 
 export function getVaultPath(): string {
    const baseDir = process.env.SECENV_HOME || os.homedir()
@@ -36,7 +39,21 @@ export async function loadVault(): Promise<Map<string, string>> {
    const vaultPath = getVaultPath()
    if (!fs.existsSync(vaultPath)) {
       vaultCache = new Map()
+      vaultLastMtime = 0
+      vaultLastSize = 0
       return vaultCache
+   }
+
+   // 1. Check for staleness
+   try {
+      const stats = fs.statSync(vaultPath)
+      if (vaultCache && stats.mtimeMs === vaultLastMtime && stats.size === vaultLastSize) {
+         return vaultCache
+      }
+      vaultLastMtime = stats.mtimeMs
+      vaultLastSize = stats.size
+   } catch (error) {
+      // If we can't stat, force reload
    }
 
    if (!identityExists()) {
@@ -45,7 +62,7 @@ export async function loadVault(): Promise<Map<string, string>> {
 
    const identity = await loadIdentity()
    try {
-      const encrypted = fs.readFileSync(vaultPath, "utf-8")
+      const encrypted = safeReadFile(vaultPath)
       const decrypted = await decryptString(identity, encrypted)
 
       const map = new Map<string, string>()
@@ -96,7 +113,15 @@ async function saveVault(data: Map<string, string>): Promise<void> {
    try {
       const encrypted = await encrypt([pubkey], content)
       await writeAtomicRaw(vaultPath, encrypted)
+      // Enforce restrictive permissions
+      await fs.promises.chmod(vaultPath, 0o600)
+
       vaultCache = data
+      try {
+         const stats = fs.statSync(vaultPath)
+         vaultLastMtime = stats.mtimeMs
+         vaultLastSize = stats.size
+      } catch (e) {}
    } catch (error: any) {
       throw new VaultError(`Failed to save vault: ${error.message}`)
    }
@@ -108,7 +133,8 @@ export async function vaultGet(key: string): Promise<string | undefined> {
 }
 
 export async function vaultSet(key: string, value: string): Promise<void> {
-   const cache = await loadVault()
+   validateKey(key)
+   validateValue(value)
 
    await withLock(getVaultPath(), async () => {
       // Reload under lock to be sure we have latest if another process wrote
@@ -121,8 +147,7 @@ export async function vaultSet(key: string, value: string): Promise<void> {
 }
 
 export async function vaultDelete(key: string): Promise<void> {
-   const cache = await loadVault()
-   if (!cache.has(key)) return
+   validateKey(key)
 
    await withLock(getVaultPath(), async () => {
       vaultCache = null

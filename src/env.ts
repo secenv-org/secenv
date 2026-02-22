@@ -158,7 +158,7 @@ class SecenvSDK {
                   `Vault key '${vaultKey}' referenced by '${key}' not found in global vault.`
                )
             }
-            this.#cache.set(key, { value: vaultValue, decryptedAt: Date.now() })
+            // Do not cache vault-derived values in the project cache to avoid serving stale data if the vault changes.
             return vaultValue as T
          }
 
@@ -180,7 +180,7 @@ class SecenvSDK {
          if (vaultValue === undefined) {
             throw new VaultError(`Vault key '${vaultKey}' referenced by '${key}' not found in global vault.`)
          }
-         this.#cache.set(key, { value: vaultValue, decryptedAt: Date.now() })
+         // Do not cache vault-derived values in the project cache to avoid serving stale data if the vault changes.
          return vaultValue as T
       }
 
