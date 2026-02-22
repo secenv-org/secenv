@@ -15,6 +15,7 @@ module.exports = {
             tsconfig: {
                allowJs: true,
                module: "esnext",
+               isolatedModules: true,
             },
          },
       ],
