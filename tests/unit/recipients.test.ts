@@ -189,24 +189,24 @@ describe("Multi-Recipient Encryption (recipients)", () => {
          const pubkeyA = await getPublicKey(identityA)
          const pubkeyB = await getPublicKey(identityB)
 
-         saveRecipients(projectDir, [pubkeyA, pubkeyB])
+         await saveRecipients(projectDir, [pubkeyA, pubkeyB])
 
          const content = fs.readFileSync(path.join(projectDir, RECIPIENTS_FILE), "utf-8")
          expect(content).toBe(`${pubkeyA}\n${pubkeyB}\n`)
       })
 
       it("throws RecipientError if an invalid key is included", async () => {
-         expect(() => saveRecipients(projectDir, ["not-valid"])).toThrow(RecipientError)
+         await expect(saveRecipients(projectDir, ["not-valid"])).rejects.toThrow(RecipientError)
       })
 
       it("overwrites an existing recipients file", async () => {
          const identity = await generateIdentity()
          const pubkey = await getPublicKey(identity)
 
-         saveRecipients(projectDir, [pubkey])
+         await saveRecipients(projectDir, [pubkey])
          const identityB = await generateIdentity()
          const pubkeyB = await getPublicKey(identityB)
-         saveRecipients(projectDir, [pubkeyB])
+         await saveRecipients(projectDir, [pubkeyB])
 
          const content = fs.readFileSync(path.join(projectDir, RECIPIENTS_FILE), "utf-8")
          expect(content).toBe(`${pubkeyB}\n`)

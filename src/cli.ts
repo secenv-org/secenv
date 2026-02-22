@@ -282,7 +282,7 @@ async function reEncryptAllSecrets(recipients: string[]): Promise<number> {
 }
 
 async function cmdTrust(pubkey: string) {
-   validatePublicKey(pubkey)
+   const normalized = validatePublicKey(pubkey)
 
    if (!identityExists()) {
       throw new IdentityNotFoundError(getDefaultKeyPath())
@@ -291,13 +291,13 @@ async function cmdTrust(pubkey: string) {
    // Build the current recipients list (seeded from identity if file doesn't exist yet)
    const currentRecipients = await loadRecipients(process.cwd())
 
-   if (currentRecipients.includes(pubkey)) {
+   if (currentRecipients.includes(normalized)) {
       printWarning(`Public key is already in ${RECIPIENTS_FILE} — nothing to do.`)
       return
    }
 
-   const newRecipients = [...currentRecipients, pubkey]
-   saveRecipients(process.cwd(), newRecipients)
+   const newRecipients = [...currentRecipients, normalized]
+   await saveRecipients(process.cwd(), newRecipients)
    printSuccess(
       `Added key to ${RECIPIENTS_FILE} (${newRecipients.length} total recipient${newRecipients.length > 1 ? "s" : ""})`
    )
@@ -308,7 +308,7 @@ async function cmdTrust(pubkey: string) {
 }
 
 async function cmdUntrust(pubkey: string) {
-   validatePublicKey(pubkey)
+   const normalized = validatePublicKey(pubkey)
 
    if (!identityExists()) {
       throw new IdentityNotFoundError(getDefaultKeyPath())
@@ -316,12 +316,12 @@ async function cmdUntrust(pubkey: string) {
 
    const currentRecipients = await loadRecipients(process.cwd())
 
-   if (!currentRecipients.includes(pubkey)) {
+   if (!currentRecipients.includes(normalized)) {
       printWarning(`Public key not found in ${RECIPIENTS_FILE} — nothing to do.`)
       return
    }
 
-   const newRecipients = currentRecipients.filter((k) => k !== pubkey)
+   const newRecipients = currentRecipients.filter((k) => k !== normalized)
 
    if (newRecipients.length === 0) {
       throw new RecipientError(
@@ -329,7 +329,7 @@ async function cmdUntrust(pubkey: string) {
       )
    }
 
-   saveRecipients(process.cwd(), newRecipients)
+   await saveRecipients(process.cwd(), newRecipients)
    printSuccess(`Removed key from ${RECIPIENTS_FILE} (${newRecipients.length} remaining)`)
 
    printInfo("Re-encrypting all secrets with the updated recipient set...")

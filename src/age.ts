@@ -2,8 +2,15 @@ import * as age from "age-encryption"
 import * as fs from "fs"
 import * as path from "path"
 import * as os from "os"
-import { IdentityNotFoundError, DecryptionError, EncryptionError, FileError, RecipientError } from "./errors.js"
+import {
+   IdentityNotFoundError,
+   DecryptionError,
+   EncryptionError,
+   FileError,
+   RecipientError,
+} from "./errors.js"
 import { ensureSafeDir, sanitizePath, safeReadFile } from "./filesystem.js"
+import { writeAtomic } from "./parse.js"
 
 const SECENV_DIR = ".secenvs"
 const KEYS_DIR = "keys"
@@ -12,8 +19,8 @@ const DEFAULT_KEY_FILE = "default.key"
 /** Name of the per-project recipients file (committed to git). */
 export const RECIPIENTS_FILE = ".secenvs.recipients"
 
-/** Regex for a valid age X25519 public key. */
-const AGE_PUBKEY_REGEX = /^age1[a-z0-9]+$/
+/** Regex for a valid age X25519 public key (bech32 charset). */
+const AGE_PUBKEY_REGEX = /^age1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+$/
 
 function stream(a: Uint8Array): ReadableStream<Uint8Array> {
    return new ReadableStream({
@@ -68,16 +75,15 @@ export async function loadIdentity(): Promise<string> {
 }
 
 /**
- * Validates an age X25519 public key.
+ * Validates an age X25519 public key and returns the normalized (trimmed) version.
  * Throws RecipientError if invalid.
  */
-export function validatePublicKey(pubkey: string): void {
+export function validatePublicKey(pubkey: string): string {
    const trimmed = pubkey.trim()
    if (!AGE_PUBKEY_REGEX.test(trimmed)) {
-      throw new RecipientError(
-         `Invalid age public key: '${trimmed}'. Expected format: age1<bech32-string>`
-      )
+      throw new RecipientError(`Invalid age public key: '${trimmed}'. Expected format: age1<bech32-string>`)
    }
+   return trimmed
 }
 
 /**
@@ -111,8 +117,8 @@ export async function loadRecipients(projectDir: string): Promise<string[]> {
       )
    }
 
-   for (const key of keys) {
-      validatePublicKey(key)
+   for (let i = 0; i < keys.length; i++) {
+      keys[i] = validatePublicKey(keys[i])
    }
 
    return keys
@@ -122,13 +128,14 @@ export async function loadRecipients(projectDir: string): Promise<string[]> {
  * Writes a recipients list to <projectDir>/.secenvs.recipients.
  * Overwrites the file completely; callers are responsible for the full key list.
  */
-export function saveRecipients(projectDir: string, pubkeys: string[]): void {
+export async function saveRecipients(projectDir: string, pubkeys: string[]): Promise<void> {
+   const normalizedKeys: string[] = []
    for (const key of pubkeys) {
-      validatePublicKey(key)
+      normalizedKeys.push(validatePublicKey(key))
    }
    const recipientsPath = path.join(projectDir, RECIPIENTS_FILE)
-   const content = pubkeys.join("\n") + "\n"
-   fs.writeFileSync(recipientsPath, content, { encoding: "utf-8", mode: 0o644 })
+   const content = normalizedKeys.join("\n") + "\n"
+   await writeAtomic(recipientsPath, content)
 }
 
 /**
@@ -152,8 +159,8 @@ export async function encrypt(
 
    const encrypter = new age.Encrypter()
    for (const pubkey of recipients) {
-      validatePublicKey(pubkey)
-      encrypter.addRecipient(pubkey)
+      const normalized = validatePublicKey(pubkey)
+      encrypter.addRecipient(normalized)
    }
 
    const data = typeof plaintext === "string" ? Buffer.from(plaintext) : plaintext

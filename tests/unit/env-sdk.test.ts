@@ -58,8 +58,8 @@ describe("Secenv SDK (env.ts)", () => {
    })
 
    it("should return decrypted value from .secenvs", async () => {
-      const pubkey = await getPublicKey(identity);
-      const encrypted = await encrypt([pubkey], "secret-value");
+      const pubkey = await getPublicKey(identity)
+      const encrypted = await encrypt([pubkey], "secret-value")
       fs.writeFileSync(".secenvs", `SECRET_KEY=enc:age:${encrypted}\n`)
 
       const sdk = createSecenv()
@@ -84,7 +84,7 @@ describe("Secenv SDK (env.ts)", () => {
    })
 
    it("should cache decrypted values", async () => {
-      const pubkey = await getPublicKey(identity);
+      const pubkey = await getPublicKey(identity)
       const encrypted = await encrypt([pubkey], "cache-me")
       fs.writeFileSync(".secenvs", `CACHE_KEY=enc:age:${encrypted}\n`)
 
