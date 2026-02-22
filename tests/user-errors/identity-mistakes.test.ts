@@ -10,6 +10,7 @@ import {
    decrypt,
    identityExists,
    getDefaultKeyPath,
+   getPublicKey,
 } from "../../src/age.js"
 import { IdentityNotFoundError, DecryptionError, FileError } from "../../src/errors.js"
 
@@ -56,7 +57,7 @@ describe("User Blunder: Identity/Key Mistakes", () => {
       // Create valid identity and encrypt something
       const identity = await generateIdentity()
       await saveIdentity(identity)
-      const encrypted = await encrypt(identity, "secret")
+      const encrypted = await encrypt([await getPublicKey(identity)], "secret")
 
       // Corrupt the identity file
       const keyPath = getDefaultKeyPath()
@@ -75,7 +76,7 @@ describe("User Blunder: Identity/Key Mistakes", () => {
       await saveIdentity(machine2Identity)
 
       // Encrypt with machine 1's identity
-      const encrypted = await encrypt(machine1Identity, "secret")
+      const encrypted = await encrypt([await getPublicKey(machine1Identity)], "secret")
 
       // Try to decrypt with machine 2's identity
       await expect(decrypt(machine2Identity, encrypted)).rejects.toThrow(DecryptionError)
@@ -193,7 +194,7 @@ describe("User Blunder: Identity/Key Mistakes", () => {
       const sdk = createSecenv()
 
       const identity = await generateIdentity()
-      const encrypted = await encrypt(identity, "secret")
+      const encrypted = await encrypt([await getPublicKey(identity)], "secret")
       fs.writeFileSync(path.join(testHome, ".secenvs"), `KEY=enc:age:${encrypted}\n`)
 
       // Should fail because invalid base64 produces garbage identity
@@ -202,7 +203,7 @@ describe("User Blunder: Identity/Key Mistakes", () => {
 
    it("should throw DecryptionError with truncated SECENV_ENCODED_IDENTITY", async () => {
       const identity = await generateIdentity()
-      const encrypted = await encrypt(identity, "secret")
+      const encrypted = await encrypt([await getPublicKey(identity)], "secret")
 
       // Set truncated base64 (user copy-paste error)
       const fullEncoded = Buffer.from(identity).toString("base64")
@@ -231,7 +232,7 @@ describe("User Blunder: Identity/Key Mistakes", () => {
       expect(loaded).toContain("GARBAGE_DATA_HERE")
 
       // Error will happen when trying to use corrupted identity
-      const encrypted = await encrypt(identity, "secret")
+      const encrypted = await encrypt([await getPublicKey(identity)], "secret")
       await expect(decrypt(loaded, encrypted)).rejects.toThrow()
    })
 })

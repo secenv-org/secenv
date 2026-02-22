@@ -3,7 +3,7 @@ import * as path from "path"
 import * as os from "os"
 import { fileURLToPath } from "url"
 import { createSecenv } from "../../src/env.js"
-import { generateIdentity, encrypt } from "../../src/age.js"
+import { generateIdentity, encrypt, getPublicKey } from "../../src/age.js"
 import { IdentityNotFoundError } from "../../src/errors.js"
 
 const __filename = fileURLToPath(import.meta.url)
@@ -48,7 +48,7 @@ describe("User Blunder: CI/Environment Variable Issues", () => {
       process.env.SECENV_ENCODED_IDENTITY = "invalid base 64 with spaces"
 
       const identity = await generateIdentity()
-      const encrypted = await encrypt(identity, "secret")
+      const encrypted = await encrypt([await getPublicKey(identity)], "secret")
       fs.writeFileSync(path.join(testDir, ".secenvs"), `KEY=enc:age:${encrypted}\n`)
 
       const sdk = createSecenv()
@@ -60,7 +60,7 @@ describe("User Blunder: CI/Environment Variable Issues", () => {
       process.env.SECENV_ENCODED_IDENTITY = "invalid\nbase64\nwith\nnewlines"
 
       const identity = await generateIdentity()
-      const encrypted = await encrypt(identity, "secret")
+      const encrypted = await encrypt([await getPublicKey(identity)], "secret")
       fs.writeFileSync(path.join(testDir, ".secenvs"), `KEY=enc:age:${encrypted}\n`)
 
       const sdk = createSecenv()
@@ -72,7 +72,7 @@ describe("User Blunder: CI/Environment Variable Issues", () => {
       process.env.SECENV_ENCODED_IDENTITY = "undefined"
 
       const identity = await generateIdentity()
-      const encrypted = await encrypt(identity, "secret")
+      const encrypted = await encrypt([await getPublicKey(identity)], "secret")
       fs.writeFileSync(path.join(testDir, ".secenvs"), `KEY=enc:age:${encrypted}\n`)
 
       const sdk = createSecenv()
@@ -86,7 +86,7 @@ describe("User Blunder: CI/Environment Variable Issues", () => {
       // User missed last few characters when copying
       process.env.SECENV_ENCODED_IDENTITY = correctEncoded.substring(0, correctEncoded.length - 5)
 
-      const encrypted = await encrypt(identity, "secret")
+      const encrypted = await encrypt([await getPublicKey(identity)], "secret")
       fs.writeFileSync(path.join(testDir, ".secenvs"), `KEY=enc:age:${encrypted}\n`)
 
       const sdk = createSecenv()
@@ -105,7 +105,7 @@ describe("User Blunder: CI/Environment Variable Issues", () => {
       process.env.SECENV_ENCODED_IDENTITY = Buffer.from(envIdentity).toString("base64")
 
       // Encrypt with env identity
-      const encrypted = await encrypt(envIdentity, "env-secret")
+      const encrypted = await encrypt([await getPublicKey(envIdentity)], "env-secret")
       fs.writeFileSync(path.join(testDir, ".secenvs"), `KEY=enc:age:${encrypted}\n`)
 
       const sdk = createSecenv()
@@ -120,7 +120,7 @@ describe("User Blunder: CI/Environment Variable Issues", () => {
 
       // But file was encrypted with different identity
       const correctIdentity = await generateIdentity()
-      const encrypted = await encrypt(correctIdentity, "secret")
+      const encrypted = await encrypt([await getPublicKey(correctIdentity)], "secret")
       fs.writeFileSync(path.join(testDir, ".secenvs"), `KEY=enc:age:${encrypted}\n`)
 
       const sdk = createSecenv()
@@ -134,7 +134,7 @@ describe("User Blunder: CI/Environment Variable Issues", () => {
 
       // Create encrypted value that requires identity
       const identity = await generateIdentity()
-      const encrypted = await encrypt(identity, "secret")
+      const encrypted = await encrypt([await getPublicKey(identity)], "secret")
       fs.writeFileSync(path.join(testDir, ".secenvs"), `KEY=enc:age:${encrypted}\n`)
 
       const sdk = createSecenv()
@@ -149,7 +149,7 @@ describe("User Blunder: CI/Environment Variable Issues", () => {
       // Remove padding characters
       process.env.SECENV_ENCODED_IDENTITY = correctEncoded.replace(/=/g, "")
 
-      const encrypted = await encrypt(identity, "secret")
+      const encrypted = await encrypt([await getPublicKey(identity)], "secret")
       fs.writeFileSync(path.join(testDir, ".secenvs"), `KEY=enc:age:${encrypted}\n`)
 
       const sdk = createSecenv()
@@ -185,7 +185,7 @@ describe("User Blunder: CI/Environment Variable Issues", () => {
       const urlSafeEncoded = correctEncoded.replace(/\+/g, "-").replace(/\//g, "_")
       process.env.SECENV_ENCODED_IDENTITY = urlSafeEncoded
 
-      const encrypted = await encrypt(identity, "secret")
+      const encrypted = await encrypt([await getPublicKey(identity)], "secret")
       fs.writeFileSync(path.join(testDir, ".secenvs"), `KEY=enc:age:${encrypted}\n`)
 
       const sdk = createSecenv()
@@ -200,7 +200,7 @@ describe("User Blunder: CI/Environment Variable Issues", () => {
 
       // But dev file was encrypted with dev identity
       const devIdentity = await generateIdentity()
-      const encrypted = await encrypt(devIdentity, "dev-secret")
+      const encrypted = await encrypt([await getPublicKey(devIdentity)], "dev-secret")
       fs.writeFileSync(path.join(testDir, ".secenvs"), `DEV_KEY=enc:age:${encrypted}\n`)
 
       const sdk = createSecenv()

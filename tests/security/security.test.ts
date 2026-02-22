@@ -3,7 +3,7 @@ import * as fs from "fs"
 import * as path from "path"
 import * as os from "os"
 import { fileURLToPath } from "url"
-import { generateIdentity, encrypt, decrypt } from "../../src/age.js"
+import { generateIdentity, encrypt, decrypt, getPublicKey } from "../../src/age.js"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -53,10 +53,11 @@ describe("Security Tests", () => {
 
    it("should use different ciphertexts for same plaintext (nonce randomness)", async () => {
       const identity = await generateIdentity()
+      const pubkey = await getPublicKey(identity)
       const plaintext = "same-value"
 
-      const enc1 = await encrypt(identity, plaintext)
-      const enc2 = await encrypt(identity, plaintext)
+      const enc1 = await encrypt([pubkey], plaintext)
+      const enc2 = await encrypt([pubkey], plaintext)
 
       expect(enc1).not.toBe(enc2)
 

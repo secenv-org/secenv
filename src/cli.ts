@@ -11,6 +11,10 @@ import {
    ensureSecenvDir,
    encrypt as encryptValue,
    decrypt as decryptValue,
+   loadRecipients,
+   saveRecipients,
+   validatePublicKey,
+   RECIPIENTS_FILE,
 } from "./age.js"
 import {
    parseEnvFile,
@@ -30,6 +34,7 @@ import {
    EncryptionError,
    SecenvError,
    ValidationError,
+   RecipientError,
 } from "./errors.js"
 import { validateKey, validateValue } from "./validators.js"
 
@@ -151,14 +156,16 @@ async function cmdSet(key: string, value?: string, isBase64: boolean = false) {
 
    validateValue(secretValue, { isBase64 })
 
-   const identity = await loadIdentity()
+   const recipients = await loadRecipients(process.cwd())
    const dataToEncrypt = isBase64 ? Buffer.from(secretValue, "base64") : secretValue
-   const encrypted = await encryptValue(identity, dataToEncrypt)
+   const encrypted = await encryptValue(recipients, dataToEncrypt)
    const encryptedValue = `${ENCRYPTED_PREFIX}${encrypted}`
 
    const envPath = getEnvPath()
    await setKey(envPath, key, encryptedValue)
-   printSuccess(`Encrypted and stored ${key}`)
+   printSuccess(
+      `Encrypted and stored ${key} (${recipients.length} recipient${recipients.length > 1 ? "s" : ""})`
+   )
 }
 
 async function cmdGet(key: string) {
@@ -248,6 +255,86 @@ async function cmdRotate(key: string, newValue?: string) {
 
    await cmdSet(key, secretValue)
    printSuccess(`Rotated ${key}`)
+}
+
+/**
+ * Re-encrypts every encrypted secret in .secenvs using the given recipients list.
+ * Used internally by trust/untrust to atomically rotate the recipient set.
+ */
+async function reEncryptAllSecrets(recipients: string[]): Promise<number> {
+   const envPath = getEnvPath()
+   if (!fs.existsSync(envPath)) {
+      return 0
+   }
+
+   const identity = await loadIdentity()
+   const parsed = parseEnvFile(envPath)
+   let count = 0
+
+   for (const line of parsed.lines) {
+      if (!line.key || !line.encrypted) continue
+      const decrypted = await decryptValue(identity, line.value.slice(ENCRYPTED_PREFIX.length))
+      const reEncrypted = await encryptValue(recipients, decrypted)
+      await setKey(envPath, line.key, `${ENCRYPTED_PREFIX}${reEncrypted}`)
+      count++
+   }
+   return count
+}
+
+async function cmdTrust(pubkey: string) {
+   const normalized = validatePublicKey(pubkey)
+
+   if (!identityExists()) {
+      throw new IdentityNotFoundError(getDefaultKeyPath())
+   }
+
+   // Build the current recipients list (seeded from identity if file doesn't exist yet)
+   const currentRecipients = await loadRecipients(process.cwd())
+
+   if (currentRecipients.includes(normalized)) {
+      printWarning(`Public key is already in ${RECIPIENTS_FILE} — nothing to do.`)
+      return
+   }
+
+   const newRecipients = [...currentRecipients, normalized]
+   await saveRecipients(process.cwd(), newRecipients)
+   printSuccess(
+      `Added key to ${RECIPIENTS_FILE} (${newRecipients.length} total recipient${newRecipients.length > 1 ? "s" : ""})`
+   )
+
+   printInfo("Re-encrypting all secrets to the new recipient set...")
+   const count = await reEncryptAllSecrets(newRecipients)
+   printSuccess(`Re-encrypted ${count} secret${count !== 1 ? "s" : ""}`)
+}
+
+async function cmdUntrust(pubkey: string) {
+   const normalized = validatePublicKey(pubkey)
+
+   if (!identityExists()) {
+      throw new IdentityNotFoundError(getDefaultKeyPath())
+   }
+
+   const currentRecipients = await loadRecipients(process.cwd())
+
+   if (!currentRecipients.includes(normalized)) {
+      printWarning(`Public key not found in ${RECIPIENTS_FILE} — nothing to do.`)
+      return
+   }
+
+   const newRecipients = currentRecipients.filter((k) => k !== normalized)
+
+   if (newRecipients.length === 0) {
+      throw new RecipientError(
+         "Cannot remove the last recipient — at least one key must remain to decrypt secrets."
+      )
+   }
+
+   await saveRecipients(process.cwd(), newRecipients)
+   printSuccess(`Removed key from ${RECIPIENTS_FILE} (${newRecipients.length} remaining)`)
+
+   printInfo("Re-encrypting all secrets with the updated recipient set...")
+   const count = await reEncryptAllSecrets(newRecipients)
+   printSuccess(`Re-encrypted ${count} secret${count !== 1 ? "s" : ""}`)
 }
 
 async function cmdExport(force: boolean = false) {
@@ -448,6 +535,24 @@ async function main() {
             break
          }
 
+         case "trust": {
+            const pubkey = args[1]
+            if (!pubkey) {
+               throw new Error("Missing public key argument. Usage: secenvs trust <age-public-key>")
+            }
+            await cmdTrust(pubkey)
+            break
+         }
+
+         case "untrust": {
+            const pubkey = args[1]
+            if (!pubkey) {
+               throw new Error("Missing public key argument. Usage: secenvs untrust <age-public-key>")
+            }
+            await cmdUntrust(pubkey)
+            break
+         }
+
          case "key": {
             const subCommand = args[1]
             if (subCommand === "export") {
@@ -482,6 +587,8 @@ async function main() {
             print("  export [--force]  Dump all decrypted secrets (requires --force)")
             print("  key export        Export private key for CI/CD")
             print("  doctor            Health check: identity, file integrity, decryption")
+            print("  trust <pubkey>    Add a recipient; re-encrypts all secrets")
+            print("  untrust <pubkey>  Remove a recipient; re-encrypts all secrets")
             print("")
             break
       }

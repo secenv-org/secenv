@@ -3,7 +3,7 @@ import * as path from "path"
 import * as os from "os"
 import { fileURLToPath } from "url"
 import { createSecenv } from "../../src/env.js"
-import { generateIdentity, saveIdentity, encrypt, identityExists } from "../../src/age.js"
+import { generateIdentity, saveIdentity, encrypt, identityExists, getPublicKey } from "../../src/age.js"
 import { setKey, parseEnvFile } from "../../src/parse.js"
 import { ValidationError } from "../../src/errors.js"
 
@@ -203,7 +203,8 @@ describe("Advanced Edge Cases", () => {
          await saveIdentity(identity)
 
          const specialValue = "Special: chars!@#$%^&*()\n\t\"'"
-         const encrypted = await encrypt(identity, specialValue)
+         const pubkey = await getPublicKey(identity)
+         const encrypted = await encrypt([pubkey], specialValue)
 
          fs.writeFileSync(".secenvs", `ENC=enc:age:${encrypted}\n`)
 
