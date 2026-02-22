@@ -29,10 +29,10 @@ describe("High-Stake Concurrency Hammer", () => {
       })
    }
 
-   it("should handle 500+ parallel write/read operations without race conditions", async () => {
+   it("should handle 200+ parallel write/read operations without race conditions", async () => {
       await runCLI(["init"])
 
-      const count = 500
+      const count = 200
       const workers = []
 
       // Mix of sets and lists

@@ -31,15 +31,15 @@
    "scripts": {
       "build": "bun run scripts/build.js",
       "prepare": "bun run scripts/build.js",
-      "test": "npm run build && node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand",
+      "test": "bun run build && node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand",
       "test:unit": "node --experimental-vm-modules node_modules/jest/bin/jest.js tests/unit",
-      "test:integration": "npm run build && node --experimental-vm-modules node_modules/jest/bin/jest.js tests/integration",
-      "test:e2e": "npm run build && node --experimental-vm-modules node_modules/jest/bin/jest.js tests/e2e --runInBand",
-      "test:performance": "npm run build && node --experimental-vm-modules node_modules/jest/bin/jest.js tests/performance --runInBand",
-      "test:security": "npm run build && node --experimental-vm-modules node_modules/jest/bin/jest.js tests/security",
-      "test:coverage": "npm run build && node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
+      "test:integration": "bun run build && node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/integration",
+      "test:e2e": "bun run build && node --experimental-vm-modules node_modules/jest/bin/jest.js tests/e2e --runInBand",
+      "test:performance": "bun run build && node --experimental-vm-modules node_modules/jest/bin/jest.js tests/performance --runInBand",
+      "test:security": "bun run build && node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand tests/security",
+      "test:coverage": "bun run build && node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
       "dev": "tsc --watch",
-      "prepublishOnly": "npm run build",
+      "prepublishOnly": "bun run build",
       "pretty": "prettier --config .prettierrc --write './src/*'"
    },
    "keywords": [
