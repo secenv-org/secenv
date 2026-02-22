@@ -9,11 +9,13 @@ export const HOOK_SCRIPT = `${SECENVS_HOOK_START}
 # secenvs pre-commit hook
 
 # Check if any .env files are being committed
-STAGED_ENV_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep '\\.env' || true)
+# We use grep -E '(^|/)\.env($|\.)' to match .env, foo/.env, .env.local, .env.development
+# We use grep -vE '\.(example|sample|template)$' to allow safe template files
+STAGED_ENV_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '(^|/)\\.env($|\\.)' | grep -vE '\\.(example|sample|template)$' || true)
 
 if [ -n "$STAGED_ENV_FILES" ]; then
     echo "🚨 ERROR: secenvs blocked a commit containing plaintext .env files!"
-    for file in $STAGED_ENV_FILES; do
+    echo "$STAGED_ENV_FILES" | while IFS= read -r file; do
         echo "  - $file"
     done
     echo ""
