@@ -101,7 +101,7 @@ export async function loadRecipients(projectDir: string): Promise<string[]> {
       }
    }
 
-   // 3. Fallback: single-recipient from local identity
+   // 2. Fallback: single-recipient from local identity
    if (!identityExists()) {
       throw new IdentityNotFoundError(getDefaultKeyPath())
    }
@@ -122,7 +122,7 @@ export async function saveRecipients(projectDir: string, pubkeys: string[]): Pro
       const content = fs.existsSync(envPath) ? safeReadFile(envPath) : ""
       const lines = content.split("\n")
 
-      // 1. Remote existing _RECIPIENT lines
+      // 1. Remove existing _RECIPIENT lines
       const otherLines = lines.filter((line) => {
          const trimmed = line.trim()
          if (!trimmed || trimmed.startsWith("#")) return true
@@ -134,7 +134,6 @@ export async function saveRecipients(projectDir: string, pubkeys: string[]): Pro
       // 2. Add new _RECIPIENT lines (usually at the top for visibility, but we'll append for safety if not found)
       // Actually, let's put them at the top after any initial comments
       const newLines: string[] = []
-      let inserted = false
 
       for (const key of normalizedKeys) {
          newLines.push(`${RECIPIENT_METADATA_KEY}=${key}`)

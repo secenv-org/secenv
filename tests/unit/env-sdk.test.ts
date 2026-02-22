@@ -177,4 +177,34 @@ describe("Secenv SDK (env.ts)", () => {
       fs.writeFileSync(".secenvs", "KEY=val2\n")
       expect(await sdk.get("KEY")).toBe("val2")
    })
+
+   describe("Metadata Filtering", () => {
+      it("get() should throw SecretNotFoundError for keys starting with _", async () => {
+         fs.writeFileSync(".secenvs", "_RECIPIENT=age1xyz\nSECRET=val\n")
+         const sdk = createSecenv()
+         await expect(sdk.get("_RECIPIENT")).rejects.toThrow(SecretNotFoundError)
+         expect(await sdk.get("SECRET")).toBe("val")
+      })
+
+      it("has() should return false for keys starting with _", () => {
+         fs.writeFileSync(".secenvs", "_RECIPIENT=age1xyz\n")
+         const sdk = createSecenv()
+         expect(sdk.has("_RECIPIENT")).toBe(false)
+      })
+
+      it("keys() should not include keys starting with _", () => {
+         fs.writeFileSync(".secenvs", "_RECIPIENT=age1xyz\nSECRET=val\n")
+         const sdk = createSecenv()
+         const keys = sdk.keys()
+         expect(keys).toContain("SECRET")
+         expect(keys).not.toContain("_RECIPIENT")
+      })
+
+      it("proxy access should throw SecretNotFoundError for keys starting with _", async () => {
+         fs.writeFileSync(".secenvs", "_RECIPIENT=age1xyz\n")
+         const sdk = createSecenv()
+         const proxy: any = sdk
+         await expect(proxy._RECIPIENT).rejects.toThrow(SecretNotFoundError)
+      })
+   })
 })
