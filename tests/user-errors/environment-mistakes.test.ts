@@ -4,7 +4,7 @@ import * as os from "os"
 import { fileURLToPath } from "url"
 import { execa } from "execa"
 import { createSecenv } from "../../src/env.js"
-import { generateIdentity, saveIdentity, encrypt } from "../../src/age.js"
+import { generateIdentity, saveIdentity, encrypt, getPublicKey } from "../../src/age.js"
 import { IdentityNotFoundError, SecretNotFoundError, FileError } from "../../src/errors.js"
 
 const __filename = fileURLToPath(import.meta.url)
@@ -211,7 +211,7 @@ describe("User Blunder: Environment/Path Mistakes", () => {
       fs.writeFileSync(path.join(newKeysDir, "default.key"), newIdentity)
 
       // Create encrypted value with new identity
-      const encrypted = await encrypt(newIdentity, "new-secret")
+      const encrypted = await encrypt([await getPublicKey(newIdentity)], "new-secret")
       fs.writeFileSync(".secenvs", `NEW_KEY=enc:age:${encrypted}\n`)
 
       // Clear SDK cache to pick up new env

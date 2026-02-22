@@ -3,7 +3,7 @@ import * as fs from "fs"
 import * as path from "path"
 import * as os from "os"
 import { fileURLToPath } from "url"
-import { generateIdentity, saveIdentity, encrypt } from "../../src/age.js"
+import { generateIdentity, saveIdentity, encrypt, getPublicKey } from "../../src/age.js"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -98,7 +98,8 @@ describe("SDK Advanced Features", () => {
    it("should handle SECENV_ENCODED_IDENTITY with invalid base64", async () => {
       // First create a valid identity and encrypt a value
       const validIdentity = await generateIdentity()
-      const encrypted = await encrypt(validIdentity, "secret")
+      const validPubkey = await getPublicKey(validIdentity)
+      const encrypted = await encrypt([validPubkey], "secret")
 
       // Set invalid base64
       process.env.SECENV_ENCODED_IDENTITY = "!!!invalid_base64!!!"
@@ -120,7 +121,8 @@ describe("SDK Advanced Features", () => {
       process.env.SECENV_ENCODED_IDENTITY = Buffer.from("not-a-valid-key").toString("base64")
 
       const identity = await generateIdentity()
-      const encrypted = await encrypt(identity, "secret")
+      const pubkey = await getPublicKey(identity)
+      const encrypted = await encrypt([pubkey], "secret")
       fs.writeFileSync(".secenvs", `ENC_KEY=enc:age:${encrypted}\n`)
 
       const sdk = createSecenv()

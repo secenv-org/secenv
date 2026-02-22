@@ -90,9 +90,10 @@ describe("User Blunder: Manual .secenvs Corruption", () => {
    })
 
    it("should throw DecryptionError for truncated age blob", async () => {
-      const { generateIdentity, encrypt } = await import("../../src/age.js")
+      const { generateIdentity, encrypt, getPublicKey } = await import("../../src/age.js")
       const identity = await generateIdentity()
-      const encrypted = await encrypt(identity, "secret")
+      const pubkey = await getPublicKey(identity)
+      const encrypted = await encrypt([pubkey], "secret")
 
       // Truncate the encrypted value
       const truncated = encrypted.substring(0, encrypted.length - 20)

@@ -133,8 +133,8 @@ describe("Doctor Command Depth", () => {
          const identity = await generateIdentity()
          await saveIdentity(identity)
 
-         const { encrypt } = await import("../../src/age.js")
-         const encrypted = await encrypt(identity, "secret")
+         const { encrypt, getPublicKey } = await import("../../src/age.js")
+         const encrypted = await encrypt([await getPublicKey(identity)], "secret")
 
          fs.writeFileSync(path.join(testDir, ".secenvs"), `PLAIN=plaintext\nENC=enc:age:${encrypted}\n`)
 
@@ -153,8 +153,8 @@ describe("Doctor Command Depth", () => {
          const identity = await generateIdentity()
          await saveIdentity(identity)
 
-         const { encrypt } = await import("../../src/age.js")
-         const encrypted = await encrypt(identity, "test-value")
+         const { encrypt, getPublicKey } = await import("../../src/age.js")
+         const encrypted = await encrypt([await getPublicKey(identity)], "test-value")
 
          fs.writeFileSync(path.join(testDir, ".secenvs"), `TEST=enc:age:${encrypted}\n`)
 

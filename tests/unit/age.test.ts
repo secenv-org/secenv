@@ -70,9 +70,10 @@ describe("Age Encryption (age.ts)", () => {
 
    it("should encrypt and decrypt a string", async () => {
       const identity = await generateIdentity()
+      const pubkey = await getPublicKey(identity)
       const plaintext = "Hello, Antigravity!"
 
-      const encrypted = await encrypt(identity, plaintext)
+      const encrypted = await encrypt([pubkey], plaintext)
       expect(encrypted).not.toBe(plaintext)
 
       const decrypted = await decrypt(identity, encrypted)
@@ -81,18 +82,20 @@ describe("Age Encryption (age.ts)", () => {
 
    it("should encrypt and decrypt UTF-8 characters", async () => {
       const identity = await generateIdentity()
+      const pubkey = await getPublicKey(identity)
       const plaintext = "🔒 Secenv is cool! 🚀 \u1234"
 
-      const encrypted = await encrypt(identity, plaintext)
+      const encrypted = await encrypt([pubkey], plaintext)
       const decrypted = await decrypt(identity, encrypted)
       expect(decrypted.toString()).toBe(plaintext)
    })
 
    it("should encrypt and decrypt empty string", async () => {
       const identity = await generateIdentity()
+      const pubkey = await getPublicKey(identity)
       const plaintext = ""
 
-      const encrypted = await encrypt(identity, plaintext)
+      const encrypted = await encrypt([pubkey], plaintext)
       const decrypted = await decrypt(identity, encrypted)
       expect(decrypted.toString()).toBe(plaintext)
    })
@@ -100,16 +103,18 @@ describe("Age Encryption (age.ts)", () => {
    it("should throw DecryptionError with wrong identity", async () => {
       const identity1 = await generateIdentity()
       const identity2 = await generateIdentity()
+      const pubkey1 = await getPublicKey(identity1)
       const plaintext = "Secret Message"
 
-      const encrypted = await encrypt(identity1, plaintext)
+      const encrypted = await encrypt([pubkey1], plaintext)
 
       await expect(decrypt(identity2, encrypted)).rejects.toThrow(DecryptionError)
    })
 
    it("should throw DecryptionError with corrupted ciphertext", async () => {
       const identity = await generateIdentity()
-      const encrypted = await encrypt(identity, "test")
+      const pubkey = await getPublicKey(identity)
+      const encrypted = await encrypt([pubkey], "test")
       const corrupted = encrypted.substring(0, encrypted.length - 10) + "invalid"
 
       await expect(decrypt(identity, corrupted)).rejects.toThrow(DecryptionError)
@@ -155,9 +160,10 @@ describe("Age Encryption (age.ts)", () => {
 
    it("should decrypt string with decryptString() convenience function", async () => {
       const identity = await generateIdentity()
+      const pubkey = await getPublicKey(identity)
       const plaintext = "Hello, decryptString!"
 
-      const encrypted = await encrypt(identity, plaintext)
+      const encrypted = await encrypt([pubkey], plaintext)
       const decrypted = await decryptString(identity, encrypted)
 
       expect(decrypted).toBe(plaintext)
@@ -166,9 +172,10 @@ describe("Age Encryption (age.ts)", () => {
 
    it("should decrypt UTF-8 strings with decryptString()", async () => {
       const identity = await generateIdentity()
+      const pubkey = await getPublicKey(identity)
       const plaintext = "🔐 Ñoño 中文 🎌"
 
-      const encrypted = await encrypt(identity, plaintext)
+      const encrypted = await encrypt([pubkey], plaintext)
       const decrypted = await decryptString(identity, encrypted)
 
       expect(decrypted).toBe(plaintext)
@@ -176,9 +183,10 @@ describe("Age Encryption (age.ts)", () => {
 
    it("should decrypt empty string with decryptString()", async () => {
       const identity = await generateIdentity()
+      const pubkey = await getPublicKey(identity)
       const plaintext = ""
 
-      const encrypted = await encrypt(identity, plaintext)
+      const encrypted = await encrypt([pubkey], plaintext)
       const decrypted = await decryptString(identity, encrypted)
 
       expect(decrypted).toBe("")
@@ -187,9 +195,10 @@ describe("Age Encryption (age.ts)", () => {
    it("should throw DecryptionError with decryptString() and wrong identity", async () => {
       const identity1 = await generateIdentity()
       const identity2 = await generateIdentity()
+      const pubkey1 = await getPublicKey(identity1)
       const plaintext = "Secret"
 
-      const encrypted = await encrypt(identity1, plaintext)
+      const encrypted = await encrypt([pubkey1], plaintext)
 
       await expect(decryptString(identity2, encrypted)).rejects.toThrow(DecryptionError)
    })
