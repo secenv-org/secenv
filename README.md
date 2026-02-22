@@ -101,6 +101,38 @@ try {
 }
 ```
 
+### Schema Validation (Zod)
+
+`secenvs` provides built-in support for validating your environment at runtime using Zod. This guarantees type
+safety and catches missing configuration immediately.
+
+```bash
+# Zod is an optional peer dependency
+npm install zod
+```
+
+```typescript
+import { z } from "zod"
+import { createEnv } from "secenvs"
+
+// Define your schema (z.object is required)
+const schema = z.object({
+   DATABASE_URL: z.string().url(),
+   PORT: z.coerce.number().default(3000),
+   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
+})
+
+// Eagerly decrypt and validate.
+// 'env' is fully typed and synchronous going forward!
+export const env = await createEnv(schema)
+
+// Use fully typed variables safely
+console.log(`Starting server on port ${env.PORT} in ${env.NODE_ENV}`)
+```
+
+Set `{ strict: false }` to handle the `SafeParseReturnType` manually instead of throwing an error:
+`await createEnv(schema, { strict: false })`
+
 ### Programmatic API
 
 ```typescript

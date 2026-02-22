@@ -3,7 +3,13 @@ import * as path from "path"
 import * as age from "age-encryption"
 import { loadIdentity, identityExists, decrypt as decryptValue, getDefaultKeyPath } from "./age.js"
 import { parseEnvFile, findKey, getEnvPath, ENCRYPTED_PREFIX, isVaultReference } from "./parse.js"
-import { DecryptionError, SecretNotFoundError, IdentityNotFoundError, VaultError } from "./errors.js"
+import {
+   DecryptionError,
+   SecretNotFoundError,
+   IdentityNotFoundError,
+   VaultError,
+   SchemaValidationError,
+} from "./errors.js"
 import { constantTimeHas } from "./crypto-utils.js"
 import { vaultGet } from "./vault.js"
 
@@ -258,3 +264,70 @@ export const env = wrapInProxy(globalSDK)
 export type Secenv = { [key: string]: Promise<string> } & SecenvSDK
 
 export { SecenvSDK }
+
+// --- Zod Schema Validation ---
+
+/**
+ * Validates the environment against a provided Zod schema.
+ *
+ * @param schema A Zod schema (e.g. `z.object({ ... })`)
+ * @param options Configuration options. `strict` defaults to `true` (throws on error).
+ * @returns A promise that resolves to the fully typed and validated environment object.
+ */
+export async function createEnv<T extends Record<string, any>>(
+   schema: { parseAsync: (data: unknown) => Promise<T>; parse: (data: unknown) => T },
+   options: { strict?: boolean } = {}
+): Promise<T | { success: false; error: any }> {
+   const { strict = true } = options
+
+   // We must dynamically import zod only if they use it, to avoid forcing the dependency
+   let z: any
+   try {
+      // @ts-ignore - Ignore the TypeScript error for optional peer dependency
+      z = await import("zod").then((m) => m.default || m)
+   } catch (err) {
+      throw new Error(
+         "The 'zod' package is required to use createEnv. Please install it with 'npm install zod'."
+      )
+   }
+
+   // 1. Gather all keys from the Zod Schema
+   // Note: We need access to the shape if it's a ZodObject.
+   // We will try our best to extract the keys to fetch from `env`.
+   const shape = (schema as any).shape
+   if (!shape) {
+      throw new Error("createEnv requires a Zod object schema (e.g. z.object({...}))")
+   }
+
+   // 2. Fetch all values that are defined in the schema
+   const rawEnv: Record<string, string | undefined> = {}
+
+   // We will iterate over the keys needed by the schema.
+   const keys = Object.keys(shape)
+   for (const key of keys) {
+      try {
+         rawEnv[key] = await env[key]
+      } catch (error) {
+         if (error instanceof SecretNotFoundError) {
+            // If it's missing, we leave it undefined so Zod can catch it (or apply default)
+            rawEnv[key] = undefined
+         } else {
+            throw error // Rethrow Vault/Decryption/File errors
+         }
+      }
+   }
+
+   // 3. Validate the gathered object against the schema
+   try {
+      // Support async refinements if present
+      if (schema.parseAsync) {
+         return await schema.parseAsync(rawEnv)
+      }
+      return schema.parse(rawEnv)
+   } catch (error: any) {
+      if (strict) {
+         throw new SchemaValidationError("Environment schema validation failed.", error.issues || [])
+      }
+      return { success: false, error }
+   }
+}

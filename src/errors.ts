@@ -8,6 +8,7 @@ export const SECENV_ERROR_CODES = {
    VALIDATION_ERROR: "VALIDATION_ERROR",
    RECIPIENT_ERROR: "RECIPIENT_ERROR",
    VAULT_ERROR: "VAULT_ERROR",
+   SCHEMA_VALIDATION_ERROR: "SCHEMA_VALIDATION_ERROR",
 } as const
 
 export type SecenvErrorCode = (typeof SECENV_ERROR_CODES)[keyof typeof SECENV_ERROR_CODES]
@@ -81,5 +82,14 @@ export class RecipientError extends SecenvError {
 export class VaultError extends SecenvError {
    constructor(message: string) {
       super(SECENV_ERROR_CODES.VAULT_ERROR, message)
+   }
+}
+
+export class SchemaValidationError extends SecenvError {
+   issues: any[]
+
+   constructor(message: string, issues: any[] = []) {
+      super(SECENV_ERROR_CODES.SCHEMA_VALIDATION_ERROR, message)
+      this.issues = issues
    }
 }

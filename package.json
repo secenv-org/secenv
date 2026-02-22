@@ -64,5 +64,8 @@
       "ts-jest": "^29.4.6",
       "tsup": "^8.5.1",
       "typescript": "^5.9.3"
+   },
+   "peerDependencies": {
+      "zod": "^4.3.6"
    }
 }
