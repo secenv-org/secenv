@@ -197,7 +197,7 @@ export async function deleteKey(filePath: string, key: string): Promise<void> {
    })
 }
 
-async function withLock(filePath: string, fn: () => Promise<void> | void): Promise<void> {
+export async function withLock(filePath: string, fn: () => Promise<void> | void): Promise<void> {
    const lockPath = `${filePath}.lock`
    let lockHandle: fs.promises.FileHandle | null = null
    let retries = 500
@@ -271,7 +271,7 @@ export async function writeAtomic(filePath: string, content: string): Promise<vo
    })
 }
 
-async function writeAtomicRaw(filePath: string, content: string): Promise<void> {
+export async function writeAtomicRaw(filePath: string, content: string): Promise<void> {
    const tmpPath = `${filePath}.tmp.${Date.now()}.${process.pid}.${Math.floor(Math.random() * 1000000)}`
    activeTempFiles.add(tmpPath)
    try {

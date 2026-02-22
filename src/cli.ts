@@ -16,6 +16,7 @@ import {
    validatePublicKey,
    RECIPIENTS_FILE,
 } from "./age.js"
+import { vaultGet, vaultSet, vaultDelete, listVaultKeys } from "./vault.js"
 import {
    parseEnvFile,
    setKey,
@@ -35,6 +36,7 @@ import {
    SecenvError,
    ValidationError,
    RecipientError,
+   VaultError,
 } from "./errors.js"
 import { validateKey, validateValue } from "./validators.js"
 
@@ -553,6 +555,65 @@ async function main() {
             break
          }
 
+         case "vault": {
+            const subCommand = args[1]
+            switch (subCommand) {
+               case "set": {
+                  const key = args[2]
+                  let value = args[3]
+                  if (!key) {
+                     throw new Error("Missing key. Usage: secenvs vault set KEY [VALUE]")
+                  }
+                  if (value === undefined) {
+                     value = await promptSecret(`Enter global vault value for ${key}: `)
+                  }
+                  validateKey(key)
+                  validateValue(value)
+                  await vaultSet(key, value)
+                  printSuccess(`Stored ${key} in global vault`)
+                  break
+               }
+               case "get": {
+                  const key = args[2]
+                  if (!key) {
+                     throw new Error("Missing key. Usage: secenvs vault get KEY")
+                  }
+                  const value = await vaultGet(key)
+                  if (value === undefined) {
+                     throw new VaultError(`Key '${key}' not found in global vault`)
+                  }
+                  process.stdout.write(value + "\n")
+                  break
+               }
+               case "list": {
+                  const keys = await listVaultKeys()
+                  if (keys.length === 0) {
+                     printInfo("Global vault is empty")
+                  } else {
+                     printInfo(`Found ${keys.length} keys in global vault:`)
+                     for (const key of keys.sort()) {
+                        print(`  ${key}`)
+                     }
+                  }
+                  break
+               }
+               case "delete": {
+                  const key = args[2]
+                  if (!key) {
+                     throw new Error("Missing key. Usage: secenvs vault delete KEY")
+                  }
+                  await vaultDelete(key)
+                  printSuccess(`Deleted ${key} from global vault`)
+                  break
+               }
+               default:
+                  throw new Error(
+                     "Invalid vault subcommand. Usage: secenvs vault <set|get|list|delete>"
+                  )
+            }
+            break
+         }
+
          case "key": {
             const subCommand = args[1]
             if (subCommand === "export") {
@@ -589,6 +650,13 @@ async function main() {
             print("  doctor            Health check: identity, file integrity, decryption")
             print("  trust <pubkey>    Add a recipient; re-encrypts all secrets")
             print("  untrust <pubkey>  Remove a recipient; re-encrypts all secrets")
+            print("  vault <cmd>       Global vault: set, get, list, delete")
+            print("")
+            print("Vault Commands:")
+            print("  vault set KEY [VAL]  Store a shared secret in ~/.secenvs/vault.age")
+            print("  vault get KEY        Print a value from the global vault")
+            print("  vault list           List all keys in the global vault")
+            print("  vault delete KEY     Remove a key from the global vault")
             print("")
             break
       }

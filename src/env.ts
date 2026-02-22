@@ -2,9 +2,10 @@ import * as fs from "fs"
 import * as path from "path"
 import * as age from "age-encryption"
 import { loadIdentity, identityExists, decrypt as decryptValue, getDefaultKeyPath } from "./age.js"
-import { parseEnvFile, findKey, getEnvPath, ENCRYPTED_PREFIX } from "./parse.js"
-import { DecryptionError, SecretNotFoundError, IdentityNotFoundError } from "./errors.js"
+import { parseEnvFile, findKey, getEnvPath, ENCRYPTED_PREFIX, isVaultReference } from "./parse.js"
+import { DecryptionError, SecretNotFoundError, IdentityNotFoundError, VaultError } from "./errors.js"
 import { constantTimeHas } from "./crypto-utils.js"
+import { vaultGet } from "./vault.js"
 
 interface CacheEntry {
    value: string
@@ -147,6 +148,20 @@ class SecenvSDK {
 
       if (!line.encrypted) {
          const value = line.value
+
+         // 4. Handle vault references in plaintext
+         if (isVaultReference(value)) {
+            const vaultKey = value.slice("vault:".length)
+            const vaultValue = await vaultGet(vaultKey)
+            if (vaultValue === undefined) {
+               throw new VaultError(
+                  `Vault key '${vaultKey}' referenced by '${key}' not found in global vault.`
+               )
+            }
+            this.#cache.set(key, { value: vaultValue, decryptedAt: Date.now() })
+            return vaultValue as T
+         }
+
          this.#cache.set(key, { value, decryptedAt: Date.now() })
          return value as T
       }
@@ -157,6 +172,18 @@ class SecenvSDK {
       const decryptedString = decrypted.toString("utf-8")
 
       this.#cache.set(key, { value: decryptedString, decryptedAt: Date.now() })
+
+      // 5. Handle vault references if decrypted value starts with vault:
+      if (isVaultReference(decryptedString)) {
+         const vaultKey = decryptedString.slice("vault:".length)
+         const vaultValue = await vaultGet(vaultKey)
+         if (vaultValue === undefined) {
+            throw new VaultError(`Vault key '${vaultKey}' referenced by '${key}' not found in global vault.`)
+         }
+         this.#cache.set(key, { value: vaultValue, decryptedAt: Date.now() })
+         return vaultValue as T
+      }
+
       return decryptedString as T
    }
 

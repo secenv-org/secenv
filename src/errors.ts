@@ -7,6 +7,7 @@ export const SECENV_ERROR_CODES = {
    ENCRYPTION_FAILED: "ENCRYPTION_FAILED",
    VALIDATION_ERROR: "VALIDATION_ERROR",
    RECIPIENT_ERROR: "RECIPIENT_ERROR",
+   VAULT_ERROR: "VAULT_ERROR",
 } as const
 
 export type SecenvErrorCode = (typeof SECENV_ERROR_CODES)[keyof typeof SECENV_ERROR_CODES]
@@ -74,5 +75,11 @@ export class EncryptionError extends SecenvError {
 export class RecipientError extends SecenvError {
    constructor(message: string) {
       super(SECENV_ERROR_CODES.RECIPIENT_ERROR, message)
+   }
+}
+
+export class VaultError extends SecenvError {
+   constructor(message: string) {
+      super(SECENV_ERROR_CODES.VAULT_ERROR, message)
    }
 }
