@@ -275,17 +275,32 @@ export { SecenvSDK }
  * @returns A promise that resolves to the fully typed and validated environment object.
  */
 export async function createEnv<T extends Record<string, any>>(
-   schema: { parseAsync: (data: unknown) => Promise<T>; parse: (data: unknown) => T, safeParseAsync?: (data: unknown) => Promise<any>, safeParse?: (data: unknown) => any },
+   schema: {
+      parseAsync: (data: unknown) => Promise<T>
+      parse: (data: unknown) => T
+      safeParseAsync?: (data: unknown) => Promise<any>
+      safeParse?: (data: unknown) => any
+   },
    options?: { strict?: true }
 ): Promise<T>
 
 export async function createEnv<T extends Record<string, any>>(
-   schema: { parseAsync: (data: unknown) => Promise<T>; parse: (data: unknown) => T, safeParseAsync?: (data: unknown) => Promise<any>, safeParse?: (data: unknown) => any },
+   schema: {
+      parseAsync: (data: unknown) => Promise<T>
+      parse: (data: unknown) => T
+      safeParseAsync?: (data: unknown) => Promise<any>
+      safeParse?: (data: unknown) => any
+   },
    options: { strict: false }
 ): Promise<{ success: true; data: T } | { success: false; error: any }>
 
 export async function createEnv<T extends Record<string, any>>(
-   schema: { parseAsync: (data: unknown) => Promise<T>; parse: (data: unknown) => T, safeParseAsync?: (data: unknown) => Promise<any>, safeParse?: (data: unknown) => any },
+   schema: {
+      parseAsync: (data: unknown) => Promise<T>
+      parse: (data: unknown) => T
+      safeParseAsync?: (data: unknown) => Promise<any>
+      safeParse?: (data: unknown) => any
+   },
    options: { strict?: boolean } = {}
 ): Promise<T | { success: true; data: T } | { success: false; error: any }> {
    const { strict = true } = options

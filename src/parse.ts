@@ -219,11 +219,14 @@ export async function withLock(filePath: string, fn: () => Promise<void> | void)
             // Stale lock detection
             let isStale = false
             try {
+               const stat = await fs.promises.stat(lockPath)
                const pidStr = await fs.promises.readFile(lockPath, "utf-8")
                const pid = parseInt(pidStr.trim(), 10)
                if (isNaN(pid)) {
-                  // Invalid PID format - treat as stale
-                  isStale = true
+                  // Invalid PID format - might be actively being written, treat as stale only if older than 10s
+                  if (Date.now() - stat.mtimeMs > 10000) {
+                     isStale = true
+                  }
                } else {
                   try {
                      process.kill(pid, 0)
