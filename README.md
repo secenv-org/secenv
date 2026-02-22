@@ -10,6 +10,8 @@ can actually share—without the security headaches.
 ## Why secenvs?
 
 - **Zero wrapper needed** — Import and use secrets directly in your code
+- **Team-friendly** — Peer-to-peer encryption for multiple recipients
+- **Cross-project vault** — Share shared secrets (like Stripe/AWS keys) across all your projects
 - **Lightning fast** — Cold start <50ms, cached access <1ms
 - **Battle-tested encryption** — AEAD encryption via [age](https://github.com/FiloSottile/age)
 - **CI/CD ready** — Works seamlessly with GitHub Actions and other pipelines
@@ -48,6 +50,9 @@ secenvs get KEY           # Get a secret (decrypted)
 secenvs list              # List all keys
 secenvs rotate KEY        # Rotate a secret
 secenvs delete KEY        # Delete a secret
+secenvs trust PUBKEY      # Add a team member (recipient)
+secenvs untrust PUBKEY    # Remove a team member
+secenvs vault <cmd>       # Global vault (set, get, list, delete)
 secenvs doctor            # Verify setup and encryption
 secenvs key export        # Export private key for CI
 ```
@@ -123,6 +128,50 @@ Use `--base64` flag for binary values like certificates:
 ```bash
 secenvs set TLS_CERT --base64 < server.crt
 ```
+
+## Team Sharing (Multi-Recipient)
+
+`secenvs` supports **Multi-Recipient Encryption**. This means you can encrypt secrets so that multiple team members can decrypt them with their own unique private keys.
+
+### Adding a Team Member
+```bash
+# Get your colleague's age public key
+secenvs trust age1pjh...
+
+# This adds the key to .secenvs.recipients and 
+# re-encrypts all project secrets for both of you.
+```
+
+### Removing a Team Member
+```bash
+secenvs untrust age1pjh...
+```
+
+The `.secenvs.recipients` file is committed to your repository so the project always knows who is authorized to manage secrets.
+
+## Global Vault (Cross-Project Secrets)
+
+Stop copy-pasting your Stripe API key into every project. Store it once in your **Global Vault** and reference it anywhere.
+
+### 1. Store a global secret
+```bash
+secenvs vault set STRIPE_KEY "sk_live_..."
+```
+
+### 2. Reference it in your project
+In your project's `.secenvs` or `.env` file:
+```env
+# .secenvs
+STRIPE_API_KEY=vault:STRIPE_KEY
+```
+
+### 3. Automatic Resolution
+The SDK resolves `vault:` references at runtime. It's completely transparent to your code:
+```typescript
+const stripeKey = await env.STRIPE_API_KEY // Returns the decrypted value from the vault
+```
+
+The vault is stored at `~/.secenvs/vault.age` and is encrypted specifically for your local identity. It never leaves your machine.
 
 ## CI/CD Integration
 
