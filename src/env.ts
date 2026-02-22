@@ -275,19 +275,19 @@ export { SecenvSDK }
  * @returns A promise that resolves to the fully typed and validated environment object.
  */
 export async function createEnv<T extends Record<string, any>>(
-   schema: { parseAsync: (data: unknown) => Promise<T>; parse: (data: unknown) => T },
+   schema: { parseAsync: (data: unknown) => Promise<T>; parse: (data: unknown) => T, safeParseAsync?: (data: unknown) => Promise<any>, safeParse?: (data: unknown) => any },
    options?: { strict?: true }
 ): Promise<T>
 
 export async function createEnv<T extends Record<string, any>>(
-   schema: { parseAsync: (data: unknown) => Promise<T>; parse: (data: unknown) => T },
+   schema: { parseAsync: (data: unknown) => Promise<T>; parse: (data: unknown) => T, safeParseAsync?: (data: unknown) => Promise<any>, safeParse?: (data: unknown) => any },
    options: { strict: false }
-): Promise<T | { success: false; error: any }>
+): Promise<{ success: true; data: T } | { success: false; error: any }>
 
 export async function createEnv<T extends Record<string, any>>(
-   schema: { parseAsync: (data: unknown) => Promise<T>; parse: (data: unknown) => T },
+   schema: { parseAsync: (data: unknown) => Promise<T>; parse: (data: unknown) => T, safeParseAsync?: (data: unknown) => Promise<any>, safeParse?: (data: unknown) => any },
    options: { strict?: boolean } = {}
-): Promise<T | { success: false; error: any }> {
+): Promise<T | { success: true; data: T } | { success: false; error: any }> {
    const { strict = true } = options
 
    // We must dynamically import zod only if they use it, to avoid forcing the dependency
@@ -301,25 +301,18 @@ export async function createEnv<T extends Record<string, any>>(
       )
    }
 
-   // 1. Gather all keys from the Zod Schema
-   // Note: We need access to the shape if it's a ZodObject.
-   // We will try our best to extract the keys to fetch from `env`.
-   const shape = (schema as any).shape
-   if (!shape) {
-      throw new Error("createEnv requires a Zod object schema (e.g. z.object({...}))")
-   }
-
-   // 2. Fetch all values that are defined in the schema
+   // 1. Wait, we don't need to try and extract `.shape` which breaks on `.refine()` (ZodEffects)
+   // We can simply feed the *entire* available environment to Zod and let `.parse()` strip unrecognized keys.
    const rawEnv: Record<string, string | undefined> = {}
 
-   // We will iterate over the keys needed by the schema.
-   const keys = Object.keys(shape)
+   // Combine `process.env` and `.secenvs` dynamically:
+   const keys = env.keys()
+
    for (const key of keys) {
       try {
          rawEnv[key] = await env[key]
       } catch (error) {
          if (error instanceof SecretNotFoundError) {
-            // If it's missing, we leave it undefined so Zod can catch it (or apply default)
             rawEnv[key] = undefined
          } else {
             throw error // Rethrow Vault/Decryption/File errors
@@ -328,16 +321,23 @@ export async function createEnv<T extends Record<string, any>>(
    }
 
    // 3. Validate the gathered object against the schema
+   if (strict === false) {
+      // Return safe output object (mimicking SafeParseReturnType)
+      try {
+         const data = schema.safeParseAsync ? await schema.safeParseAsync(rawEnv) : schema.safeParse!(rawEnv)
+         return data as { success: true; data: T } | { success: false; error: any }
+      } catch (error) {
+         // fallback if safeParse isn't cleanly implemented
+         return { success: false, error }
+      }
+   }
+
    try {
-      // Support async refinements if present
       if (schema.parseAsync) {
-         return await schema.parseAsync(rawEnv)
+         return (await schema.parseAsync(rawEnv)) as T
       }
-      return schema.parse(rawEnv)
+      return schema.parse(rawEnv) as T
    } catch (error: any) {
-      if (strict) {
-         throw new SchemaValidationError("Environment schema validation failed.", error.issues || [])
-      }
-      return { success: false, error }
+      throw new SchemaValidationError("Environment schema validation failed.", error.issues || [])
    }
 }
