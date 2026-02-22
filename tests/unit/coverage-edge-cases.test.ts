@@ -2,12 +2,20 @@ import * as fs from "fs"
 import * as path from "path"
 import * as os from "os"
 import { fileURLToPath } from "url"
+<<<<<<< HEAD
 import { createEnv } from "../../src/env.js"
+=======
+import { createEnv, env, createSecenv } from "../../src/env.js"
+>>>>>>> 8c329dc (Add comprehensive edge case tests to achieve 96.66% line coverage)
 import { writeAtomicRaw, withLock, setKey, deleteKey } from "../../src/parse.js"
 import { vaultSet, vaultGet, clearVaultCache } from "../../src/vault.js"
 import { FileError } from "../../src/errors.js"
 import { sanitizePath, ensureSafeDir } from "../../src/filesystem.js"
+<<<<<<< HEAD
 import { generateIdentity, saveIdentity } from "../../src/age.js"
+=======
+import { generateIdentity, saveIdentity, loadIdentity, encrypt, getPublicKey } from "../../src/age.js"
+>>>>>>> 8c329dc (Add comprehensive edge case tests to achieve 96.66% line coverage)
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -120,4 +128,31 @@ describe("Edge Cases for 100% Coverage", () => {
       // Try to set vault key
       await expect(vaultSet("KEY", "value")).rejects.toThrow("Identity key not found")
    })
+<<<<<<< HEAD
+=======
+
+   it("should access proxy methods and properties", async () => {
+      // Method access returns value (line 248)
+      const keys = env.keys()
+      expect(Array.isArray(keys)).toBe(true)
+
+      // Property access calls target.get (line 253)
+      await expect(env["nonexistent"]).rejects.toThrow("not found")
+   })
+
+   it("should access proxy methods and properties", async () => {
+      // Method access returns value (line 248)
+      const keys = env.keys()
+      expect(Array.isArray(keys)).toBe(true)
+
+      // Property access calls target.get (line 253)
+      await expect(env["nonexistent"]).rejects.toThrow("not found")
+   })
+
+   it("should use schema.parse in createEnv", async () => {
+      const schema = { parse: (data: any) => ({ test: "value" }) } as any
+      const result = await createEnv(schema)
+      expect(result).toEqual({ test: "value" })
+   })
+>>>>>>> 8c329dc (Add comprehensive edge case tests to achieve 96.66% line coverage)
 })
