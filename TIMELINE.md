@@ -21,7 +21,7 @@ We stripped secret management down to the absolute essentials. No servers, no co
 
 ---
 
-## 🛡️ Phase 2: The "Safety Net" (Shipped)
+## 🛡️ Phase 2: The "Safety Net" (In Progress)
 
 **Goal:** Make secenvs the default choice for teams and production apps.  
 **Focus:** Collaboration, Migration, and Mistakes-Prevention.
@@ -37,9 +37,13 @@ We stripped secret management down to the absolute essentials. No servers, no co
 - **Migration Engine:**
    - `secenvs migrate` to convert legacy `.env` files automatically.
    - Interactive prompts: "Keep local? Move to vault?"
+- **Schema Validation:**
+   - Native SDK `createEnv` wrapper for runtime validation via Zod.
+
+### Remaining Phase 2 Features
+
 - **Safety Nets:**
    - **Git Hooks:** Pre-commit hooks to block plaintext `.env` files.
-   - **Schema Validation:** Native SDK `createEnv` wrapper for runtime validation via Zod.
    - **Polyglot Support:** `secenvs run -- python app.py` for non-JS languages.
 
 ---
