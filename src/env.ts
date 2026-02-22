@@ -276,6 +276,16 @@ export { SecenvSDK }
  */
 export async function createEnv<T extends Record<string, any>>(
    schema: { parseAsync: (data: unknown) => Promise<T>; parse: (data: unknown) => T },
+   options?: { strict?: true }
+): Promise<T>
+
+export async function createEnv<T extends Record<string, any>>(
+   schema: { parseAsync: (data: unknown) => Promise<T>; parse: (data: unknown) => T },
+   options: { strict: false }
+): Promise<T | { success: false; error: any }>
+
+export async function createEnv<T extends Record<string, any>>(
+   schema: { parseAsync: (data: unknown) => Promise<T>; parse: (data: unknown) => T },
    options: { strict?: boolean } = {}
 ): Promise<T | { success: false; error: any }> {
    const { strict = true } = options
