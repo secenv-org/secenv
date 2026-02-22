@@ -39,6 +39,7 @@ We stripped secret management down to the absolute essentials. No servers, no co
    - Interactive prompts: "Keep local? Move to vault?"
 - **Safety Nets:**
    - **Git Hooks:** Pre-commit hooks to block plaintext `.env` files.
+   - **Schema Validation:** Native SDK `createEnv` wrapper for runtime validation via Zod.
    - **Polyglot Support:** `secenvs run -- python app.py` for non-JS languages.
 
 ---
