@@ -53,6 +53,7 @@ secenvs delete KEY        # Delete a secret
 secenvs trust PUBKEY      # Add a team member (recipient)
 secenvs untrust PUBKEY    # Remove a team member
 secenvs vault <cmd>       # Global vault (set, get, list, delete)
+secenvs migrate [file]    # Migrate an existing .env file
 secenvs doctor            # Verify setup and encryption
 secenvs key export        # Export private key for CI
 ```

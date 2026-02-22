@@ -25,6 +25,7 @@ import {
    isEncryptedValue,
    writeAtomic,
 } from "./parse.js"
+import { parseDotenvFallback, DotenvLine } from "./dotenv-parser.js"
 import {
    IdentityNotFoundError,
    DecryptionError,
@@ -91,7 +92,7 @@ async function promptSecret(promptText: string): Promise<string> {
       output: process.stdout,
    })
 
-   return new Promise((resolve, reject) => {
+   return new Promise((resolve) => {
       rl.question(promptText, (answer) => {
          rl.close()
          resolve(answer)
@@ -99,9 +100,25 @@ async function promptSecret(promptText: string): Promise<string> {
    })
 }
 
+async function promptSelect(question: string, options: string[]): Promise<number> {
+   printInfo(question)
+   options.forEach((opt, idx) => {
+      print(`${idx + 1}) ${opt}`)
+   })
+
+   while (true) {
+      const answer = await promptSecret(`Select an option (1-${options.length}): `)
+      const choice = parseInt(answer.trim(), 10)
+      if (!isNaN(choice) && choice >= 1 && choice <= options.length) {
+         return choice - 1
+      }
+      printError(`Invalid selection. Please enter a number between 1 and ${options.length}.`)
+   }
+}
+
 async function confirm(message: string): Promise<boolean> {
-   const answer = await promptSecret(`${message} (yes/no): `)
-   return answer.toLowerCase() === "yes"
+   const answer = await promptSecret(`${message} (y/N): `)
+   return answer.toLowerCase() === "y" || answer.toLowerCase() === "yes"
 }
 
 async function cmdInit() {
@@ -476,6 +493,127 @@ async function cmdDoctor() {
    print(`Doctor: ${passed}/${checks} checks passed`)
 }
 
+async function cmdMigrate(filePath: string = ".env", auto: boolean = false) {
+   if (!fs.existsSync(filePath)) {
+      throw new FileError(`File not found: ${filePath}`)
+   }
+
+   printInfo(`Parsing ${filePath}...`)
+   const lines = parseDotenvFallback(filePath)
+
+   if (lines.length === 0) {
+      printInfo(`No valid environment variables found in ${filePath}`)
+      return
+   }
+
+   const envPath = getEnvPath()
+   let existingParsed = fs.existsSync(envPath) ? parseEnvFile(envPath) : null
+
+   let migratedCount = 0
+   let skippedCount = 0
+
+   for (const line of lines) {
+      const { key, value } = line
+
+      try {
+         validateKey(key)
+      } catch {
+         printWarning(`Skipping invalid key '${key}' at line ${line.lineNumber}`)
+         skippedCount++
+         continue
+      }
+
+      if (existingParsed && findKey(existingParsed, key)) {
+         if (!auto) {
+            const shouldOverwrite = await confirm(`Key '${key}' already exists in .secenvs. Overwrite?`)
+            if (!shouldOverwrite) {
+               skippedCount++
+               continue
+            }
+         }
+      }
+
+      const hasNewlines = value.includes("\n") || value.includes("\r")
+      let processValue = value
+      let isBase64 = false
+
+      if (hasNewlines) {
+         printWarning(`Key '${key}' contains newlines. It will be Base64-encoded automatically.`)
+         processValue = Buffer.from(value).toString("base64")
+         isBase64 = true
+      }
+
+      if (auto) {
+         printInfo(`Auto-encrypting '${key}' locally...`)
+         await cmdSet(key, processValue, isBase64)
+         migratedCount++
+      } else {
+         print("")
+         const choice = await promptSelect(`How would you like to handle '${key}'?`, [
+            "Encrypt locally in .secenvs (Default)",
+            "Move to global vault (~/.secenvs/vault.age)",
+            "Keep as plaintext in .secenvs",
+            "Skip",
+         ])
+
+         switch (choice) {
+            case 0:
+               await cmdSet(key, processValue, isBase64)
+               migratedCount++
+               break
+            case 1:
+               await vaultSet(key, processValue)
+               // Automatically create the vault reference in local .secenvs
+               const vaultRef = `vault:${key}`
+               const content = fs.existsSync(envPath) ? fs.readFileSync(envPath, "utf-8") : ""
+               const fd = fs.openSync(envPath, "a")
+               if (content && !content.endsWith("\n")) {
+                  fs.appendFileSync(fd, "\n")
+               }
+               fs.appendFileSync(fd, `${key}=${vaultRef}\n`)
+               fs.closeSync(fd)
+               printSuccess(`Stored ${key} in global vault and linked in .secenvs`)
+               migratedCount++
+               break
+            case 2:
+               // Validated plaintext appending
+               const ptContent = fs.existsSync(envPath) ? fs.readFileSync(envPath, "utf-8") : ""
+               const ptFd = fs.openSync(envPath, "a")
+               if (ptContent && !ptContent.endsWith("\n")) {
+                  fs.appendFileSync(ptFd, "\n")
+               }
+               fs.appendFileSync(ptFd, `${key}=${processValue}\n`)
+               fs.closeSync(ptFd)
+               printSuccess(`Added ${key} as plaintext in .secenvs`)
+               migratedCount++
+               break
+            case 3:
+               printInfo(`Skipped '${key}'`)
+               skippedCount++
+               break
+         }
+      }
+
+      // Update our parsed state so we don't accidentally add duplicates in the loop
+      if (fs.existsSync(envPath)) {
+         existingParsed = parseEnvFile(envPath)
+      }
+   }
+
+   print("")
+   printSuccess(`Migration complete: ${migratedCount} migrated, ${skippedCount} skipped.`)
+
+   if (!auto) {
+      const backup = await confirm(
+         `Would you like to rename ${filePath} to ${filePath}.bak to avoid accidental commits?`
+      )
+      if (backup) {
+         fs.renameSync(filePath, `${filePath}.bak`)
+         printSuccess(`Renamed ${filePath} to ${filePath}.bak`)
+      }
+   }
+}
+
 async function main() {
    const args = process.argv.slice(2)
    const command = args[0] || "help"
@@ -606,9 +744,7 @@ async function main() {
                   break
                }
                default:
-                  throw new Error(
-                     "Invalid vault subcommand. Usage: secenvs vault <set|get|list|delete>"
-                  )
+                  throw new Error("Invalid vault subcommand. Usage: secenvs vault <set|get|list|delete>")
             }
             break
          }
@@ -624,6 +760,14 @@ async function main() {
                break
             }
             throw new Error("Invalid key subcommand. Usage: secenvs key export")
+         }
+
+         case "migrate": {
+            const auto = args.includes("--auto")
+            const fileArgs = args.filter((a) => a !== "migrate" && a !== "--auto")
+            const fileToMigrate = fileArgs[0] || ".env"
+            await cmdMigrate(fileToMigrate, auto)
+            break
          }
 
          case "doctor":
@@ -647,6 +791,7 @@ async function main() {
             print("  export [--force]  Dump all decrypted secrets (requires --force)")
             print("  key export        Export private key for CI/CD")
             print("  doctor            Health check: identity, file integrity, decryption")
+            print("  migrate [file]    Migrate an existing .env file interactively")
             print("  trust <pubkey>    Add a recipient; re-encrypts all secrets")
             print("  untrust <pubkey>  Remove a recipient; re-encrypts all secrets")
             print("  vault <cmd>       Global vault: set, get, list, delete")
