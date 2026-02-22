@@ -10,7 +10,7 @@ import {
    loadRecipients,
    saveRecipients,
    validatePublicKey,
-   RECIPIENTS_FILE,
+   RECIPIENT_METADATA_KEY,
 } from "../../src/age.js"
 import { RecipientError, IdentityNotFoundError } from "../../src/errors.js"
 
@@ -143,47 +143,52 @@ describe("Multi-Recipient Encryption (recipients)", () => {
          await expect(loadRecipients(projectDir)).rejects.toThrow(IdentityNotFoundError)
       })
 
-      it("reads keys from an existing recipients file", async () => {
+      it("reads keys from an existing .secenvs file", async () => {
          const identity = await generateIdentity()
          const pubkey = await getPublicKey(identity)
 
-         const recipientsFile = path.join(projectDir, RECIPIENTS_FILE)
-         fs.writeFileSync(recipientsFile, `# Team recipients\n${pubkey}\n`)
+         const envFile = path.join(projectDir, ".secenvs")
+         fs.writeFileSync(envFile, `# Metadata\n${RECIPIENT_METADATA_KEY}=${pubkey}\n`)
 
          const recipients = await loadRecipients(projectDir)
          expect(recipients).toEqual([pubkey])
       })
 
-      it("skips comment lines and blank lines in recipients file", async () => {
+      it("skips non-recipient lines in .secenvs file", async () => {
          const identityA = await generateIdentity()
          const identityB = await generateIdentity()
          const pubkeyA = await getPublicKey(identityA)
          const pubkeyB = await getPublicKey(identityB)
 
-         const content = `# Alice\n${pubkeyA}\n\n# Bob\n${pubkeyB}\n`
-         fs.writeFileSync(path.join(projectDir, RECIPIENTS_FILE), content)
+         const content = `OTHER_KEY=value\n${RECIPIENT_METADATA_KEY}=${pubkeyA}\n\n# Comment\n${RECIPIENT_METADATA_KEY}=${pubkeyB}\n`
+         fs.writeFileSync(path.join(projectDir, ".secenvs"), content)
 
          const recipients = await loadRecipients(projectDir)
          expect(recipients).toEqual([pubkeyA, pubkeyB])
       })
 
-      it("throws RecipientError when recipients file has no valid keys", async () => {
-         const recipientsFile = path.join(projectDir, RECIPIENTS_FILE)
-         fs.writeFileSync(recipientsFile, "# only comments\n\n")
+      it("falls back to local identity if .secenvs exists but contains no recipients", async () => {
+         const identity = await generateIdentity()
+         await saveIdentity(identity)
+         const pubkey = await getPublicKey(identity)
 
-         await expect(loadRecipients(projectDir)).rejects.toThrow(RecipientError)
+         const envFile = path.join(projectDir, ".secenvs")
+         fs.writeFileSync(envFile, "SOME_SECRET=value\n")
+
+         const recipients = await loadRecipients(projectDir)
+         expect(recipients).toEqual([pubkey])
       })
 
-      it("throws RecipientError when recipients file contains an invalid key", async () => {
-         const recipientsFile = path.join(projectDir, RECIPIENTS_FILE)
-         fs.writeFileSync(recipientsFile, "not-an-age-key\n")
+      it("throws RecipientError when .secenvs contains an invalid recipient key", async () => {
+         const envFile = path.join(projectDir, ".secenvs")
+         fs.writeFileSync(envFile, `${RECIPIENT_METADATA_KEY}=not-an-age-key\n`)
 
          await expect(loadRecipients(projectDir)).rejects.toThrow(RecipientError)
       })
    })
 
    describe("saveRecipients()", () => {
-      it("writes keys one-per-line to the recipients file", async () => {
+      it("writes keys as metadata to the .secenvs file", async () => {
          const identityA = await generateIdentity()
          const identityB = await generateIdentity()
          const pubkeyA = await getPublicKey(identityA)
@@ -191,25 +196,28 @@ describe("Multi-Recipient Encryption (recipients)", () => {
 
          await saveRecipients(projectDir, [pubkeyA, pubkeyB])
 
-         const content = fs.readFileSync(path.join(projectDir, RECIPIENTS_FILE), "utf-8")
-         expect(content).toBe(`${pubkeyA}\n${pubkeyB}\n`)
+         const content = fs.readFileSync(path.join(projectDir, ".secenvs"), "utf-8")
+         expect(content).toContain(`${RECIPIENT_METADATA_KEY}=${pubkeyA}`)
+         expect(content).toContain(`${RECIPIENT_METADATA_KEY}=${pubkeyB}`)
       })
 
       it("throws RecipientError if an invalid key is included", async () => {
          await expect(saveRecipients(projectDir, ["not-valid"])).rejects.toThrow(RecipientError)
       })
 
-      it("overwrites an existing recipients file", async () => {
+      it("overwrites existing recipients in .secenvs while preserving other lines", async () => {
+         const envFile = path.join(projectDir, ".secenvs")
+         fs.writeFileSync(envFile, "API_KEY=secret\n_RECIPIENT=oldkey\n")
+
          const identity = await generateIdentity()
          const pubkey = await getPublicKey(identity)
 
          await saveRecipients(projectDir, [pubkey])
-         const identityB = await generateIdentity()
-         const pubkeyB = await getPublicKey(identityB)
-         await saveRecipients(projectDir, [pubkeyB])
 
-         const content = fs.readFileSync(path.join(projectDir, RECIPIENTS_FILE), "utf-8")
-         expect(content).toBe(`${pubkeyB}\n`)
+         const content = fs.readFileSync(envFile, "utf-8")
+         expect(content).toContain("API_KEY=secret")
+         expect(content).toContain(`${RECIPIENT_METADATA_KEY}=${pubkey}`)
+         expect(content).not.toContain("oldkey")
       })
    })
 })

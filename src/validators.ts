@@ -1,6 +1,6 @@
 import { ValidationError } from "./errors.js"
 
-const KEY_REGEX = /^[A-Z][A-Z0-9_]*$/
+const KEY_REGEX = /^[A-Z_][A-Z0-9_]*$/
 const MAX_KEY_LENGTH = 64
 const MAX_VALUE_SIZE = 5 * 1024 * 1024 // 5MB
 

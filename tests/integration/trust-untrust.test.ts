@@ -3,8 +3,7 @@ import * as fs from "fs"
 import * as path from "path"
 import * as os from "os"
 import { fileURLToPath } from "url"
-import { generateIdentity, getPublicKey } from "../../src/age.js"
-import { RECIPIENTS_FILE } from "../../src/age.js"
+import { generateIdentity, getPublicKey, RECIPIENT_METADATA_KEY } from "../../src/age.js"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -49,12 +48,12 @@ describe("CLI Integration: trust / untrust", () => {
       expect(stdout).toContain("2 total recipients")
       expect(stdout).toContain("Re-encrypted 1 secret")
 
-      // Recipients file should now contain Bob's key
-      const recipientsContent = fs.readFileSync(
-         path.join(testDir, RECIPIENTS_FILE),
+      // .secenvs file should now contain Bob's key
+      const content = fs.readFileSync(
+         path.join(testDir, ".secenvs"),
          "utf-8"
       )
-      expect(recipientsContent).toContain(bobPubkey)
+      expect(content).toContain(`${RECIPIENT_METADATA_KEY}=${bobPubkey}`)
    })
 
    it("Bob can decrypt after being trusted", async () => {
@@ -108,11 +107,11 @@ describe("CLI Integration: trust / untrust", () => {
       expect(stdout).toContain("Removed key")
       expect(stdout).toContain("Re-encrypted 1 secret")
 
-      const recipientsContent = fs.readFileSync(
-         path.join(testDir, RECIPIENTS_FILE),
+      const content = fs.readFileSync(
+         path.join(testDir, ".secenvs"),
          "utf-8"
       )
-      expect(recipientsContent).not.toContain(bobPubkey)
+      expect(content).not.toContain(`${RECIPIENT_METADATA_KEY}=${bobPubkey}`)
    })
 
    it("untrust warns when key is not present", async () => {

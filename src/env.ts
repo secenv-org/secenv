@@ -142,7 +142,7 @@ class SecenvSDK {
       }
 
       const line = findKey(this.#parsedEnv, key)
-      if (!line) {
+      if (!line || line.key.startsWith("_")) {
          throw new SecretNotFoundError(key)
       }
 
@@ -196,7 +196,7 @@ class SecenvSDK {
       }
 
       this.reloadEnv()
-      if (this.#parsedEnv) {
+      if (this.#parsedEnv && !key.startsWith("_")) {
          if (constantTimeHas(this.#parsedEnv.keys, key)) {
             found = true
          }
@@ -209,7 +209,9 @@ class SecenvSDK {
       this.reloadEnv()
       if (this.#parsedEnv) {
          for (const key of this.#parsedEnv.keys) {
-            allKeys.add(key)
+            if (!key.startsWith("_")) {
+               allKeys.add(key)
+            }
          }
       }
       return Array.from(allKeys)

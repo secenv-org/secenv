@@ -10,14 +10,14 @@ import {
    RecipientError,
 } from "./errors.js"
 import { ensureSafeDir, sanitizePath, safeReadFile } from "./filesystem.js"
-import { writeAtomic } from "./parse.js"
+import { parseEnvFile, getEnvPath, withLock, writeAtomicRaw } from "./parse.js"
 
 const SECENV_DIR = ".secenvs"
 const KEYS_DIR = "keys"
 const DEFAULT_KEY_FILE = "default.key"
 
-/** Name of the per-project recipients file (committed to git). */
-export const RECIPIENTS_FILE = ".secenvs.recipients"
+/** Name of the metadata key used in .secenvs to store recipients. */
+export const RECIPIENT_METADATA_KEY = "_RECIPIENT"
 
 /** Regex for a valid age X25519 public key (bech32 charset). */
 const AGE_PUBKEY_REGEX = /^age1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+$/
@@ -86,56 +86,70 @@ export function validatePublicKey(pubkey: string): string {
    return trimmed
 }
 
-/**
- * Reads recipients from <projectDir>/.secenvs.recipients.
- * Each non-blank, non-comment line is treated as an age public key.
- * Falls back to the local identity's public key if the file doesn't exist,
- * preserving full backward-compatibility with Phase 1 projects.
- */
 export async function loadRecipients(projectDir: string): Promise<string[]> {
-   const recipientsPath = path.join(projectDir, RECIPIENTS_FILE)
+   const envPath = path.join(projectDir, ".secenvs")
 
-   if (!fs.existsSync(recipientsPath)) {
-      // Backward-compat: single-recipient from local identity
-      if (!identityExists()) {
-         throw new IdentityNotFoundError(getDefaultKeyPath())
+   // 1. Load from .secenvs
+   if (fs.existsSync(envPath)) {
+      const parsed = parseEnvFile(envPath)
+      const keys = parsed.lines
+         .filter((line) => line.key === RECIPIENT_METADATA_KEY)
+         .map((line) => line.value.trim())
+
+      if (keys.length > 0) {
+         return keys.map((k) => validatePublicKey(k))
       }
-      const identity = await loadIdentity()
-      const pubkey = await getPublicKey(identity)
-      return [pubkey]
    }
 
-   const content = safeReadFile(recipientsPath)
-   const keys = content
-      .split("\n")
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0 && !line.startsWith("#"))
-
-   if (keys.length === 0) {
-      throw new RecipientError(
-         `${RECIPIENTS_FILE} exists but contains no valid public keys. Add at least one age public key or delete the file.`
-      )
+   // 3. Fallback: single-recipient from local identity
+   if (!identityExists()) {
+      throw new IdentityNotFoundError(getDefaultKeyPath())
    }
-
-   for (let i = 0; i < keys.length; i++) {
-      keys[i] = validatePublicKey(keys[i])
-   }
-
-   return keys
+   const identity = await loadIdentity()
+   const pubkey = await getPublicKey(identity)
+   return [pubkey]
 }
 
 /**
- * Writes a recipients list to <projectDir>/.secenvs.recipients.
- * Overwrites the file completely; callers are responsible for the full key list.
+ * Writes the recipients list directly into the .secenvs file.
+ * This preserves comments and existing secrets while updating the recipient block.
  */
 export async function saveRecipients(projectDir: string, pubkeys: string[]): Promise<void> {
-   const normalizedKeys: string[] = []
-   for (const key of pubkeys) {
-      normalizedKeys.push(validatePublicKey(key))
-   }
-   const recipientsPath = path.join(projectDir, RECIPIENTS_FILE)
-   const content = normalizedKeys.join("\n") + "\n"
-   await writeAtomic(recipientsPath, content)
+   const normalizedKeys = pubkeys.map((k) => validatePublicKey(k))
+   const envPath = path.join(projectDir, ".secenvs")
+
+   await withLock(envPath, async () => {
+      const content = fs.existsSync(envPath) ? safeReadFile(envPath) : ""
+      const lines = content.split("\n")
+
+      // 1. Remote existing _RECIPIENT lines
+      const otherLines = lines.filter((line) => {
+         const trimmed = line.trim()
+         if (!trimmed || trimmed.startsWith("#")) return true
+         const eqIndex = trimmed.indexOf("=")
+         if (eqIndex === -1) return true
+         return trimmed.slice(0, eqIndex).trim() !== RECIPIENT_METADATA_KEY
+      })
+
+      // 2. Add new _RECIPIENT lines (usually at the top for visibility, but we'll append for safety if not found)
+      // Actually, let's put them at the top after any initial comments
+      const newLines: string[] = []
+      let inserted = false
+
+      for (const key of normalizedKeys) {
+         newLines.push(`${RECIPIENT_METADATA_KEY}=${key}`)
+      }
+
+      const finalLines = [...newLines, ...otherLines]
+
+      const finalContent =
+         finalLines
+            .join("\n")
+            .replace(/\n{3,}/g, "\n\n") // Cleanup excessive whitespace
+            .trim() + "\n"
+
+      await writeAtomicRaw(envPath, finalContent)
+   })
 }
 
 /**

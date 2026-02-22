@@ -14,7 +14,6 @@ import {
    loadRecipients,
    saveRecipients,
    validatePublicKey,
-   RECIPIENTS_FILE,
 } from "./age.js"
 import { vaultGet, vaultSet, vaultDelete, listVaultKeys } from "./vault.js"
 import {
@@ -294,14 +293,14 @@ async function cmdTrust(pubkey: string) {
    const currentRecipients = await loadRecipients(process.cwd())
 
    if (currentRecipients.includes(normalized)) {
-      printWarning(`Public key is already in ${RECIPIENTS_FILE} — nothing to do.`)
+      printWarning(`Public key is already in .secenvs — nothing to do.`)
       return
    }
 
    const newRecipients = [...currentRecipients, normalized]
    await saveRecipients(process.cwd(), newRecipients)
    printSuccess(
-      `Added key to ${RECIPIENTS_FILE} (${newRecipients.length} total recipient${newRecipients.length > 1 ? "s" : ""})`
+      `Added key to .secenvs (${newRecipients.length} total recipient${newRecipients.length > 1 ? "s" : ""})`
    )
 
    printInfo("Re-encrypting all secrets to the new recipient set...")
@@ -319,7 +318,7 @@ async function cmdUntrust(pubkey: string) {
    const currentRecipients = await loadRecipients(process.cwd())
 
    if (!currentRecipients.includes(normalized)) {
-      printWarning(`Public key not found in ${RECIPIENTS_FILE} — nothing to do.`)
+      printWarning(`Public key not found in .secenvs — nothing to do.`)
       return
    }
 
@@ -332,7 +331,7 @@ async function cmdUntrust(pubkey: string) {
    }
 
    await saveRecipients(process.cwd(), newRecipients)
-   printSuccess(`Removed key from ${RECIPIENTS_FILE} (${newRecipients.length} remaining)`)
+   printSuccess(`Removed key from .secenvs (${newRecipients.length} remaining)`)
 
    printInfo("Re-encrypting all secrets with the updated recipient set...")
    const count = await reEncryptAllSecrets(newRecipients)
