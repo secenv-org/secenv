@@ -42,4 +42,4 @@ jobs:
               tests/deno/deno_compat_suite.test.ts
 
          - name: Run Bun Compatibility Tests
-           run: bun test tests/bun_compat.test.ts
+           run: bun test tests/bun/bun_compat.test.ts

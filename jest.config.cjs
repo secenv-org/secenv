@@ -1,26 +1,21 @@
-/** @type {import('ts-jest').JestConfigWithTsJest} **/
 module.exports = {
-   preset: "ts-jest/presets/default-esm",
    testEnvironment: "node",
    extensionsToTreatAsEsm: [".ts"],
    moduleNameMapper: {
       "^(\\.{1,2}/.*)\\.js$": "$1",
    },
-   resolver: undefined,
    transform: {
       "^.+\\.tsx?$": [
-         "ts-jest",
+         "@swc/jest",
          {
-            useESM: true,
-            tsconfig: {
-               allowJs: true,
-               module: "esnext",
-               isolatedModules: true,
+            jsc: {
+               target: "es2022",
+               parser: { syntax: "typescript" },
             },
+            module: { type: "es6" },
          },
       ],
    },
    testTimeout: 30000,
-   setupFiles: ["<rootDir>/tests/setup.js"],
-   testPathIgnorePatterns: ["/node_modules/", "/tests/deno/", "/tests/bun_compat.test.ts"],
+   testPathIgnorePatterns: ["/node_modules/", "/tests/deno/", "/tests/bun/"],
 }

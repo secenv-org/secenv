@@ -49,7 +49,7 @@ describe("Git Pre-commit Hooks (E2E)", () => {
 
    it("should install hooks and block plaintext .env files", () => {
       // 1. Install hooks using the built CLI binary
-      const cliPath = path.join(originalCwd, "bin", "secenvs")
+      const cliPath = path.join(originalCwd, "bin", "secenvs.js")
       const result = run(`node ${cliPath} install-hooks`, repoDir)
       expect(result.status).toBe(0)
       expect(result.stdout).toContain("Successfully installed secenvs pre-commit hook")
@@ -73,7 +73,7 @@ describe("Git Pre-commit Hooks (E2E)", () => {
    })
 
    it("should handle real-world complexities correctly", () => {
-      const cliPath = path.join(originalCwd, "bin", "secenvs")
+      const cliPath = path.join(originalCwd, "bin", "secenvs.js")
       run(`node ${cliPath} install-hooks`, repoDir)
 
       // 1. .env.example should NOT be blocked
@@ -127,7 +127,7 @@ describe("Git Pre-commit Hooks (E2E)", () => {
    })
 
    it("should uninstall hooks and allow plaintext .env files again", () => {
-      const cliPath = path.join(originalCwd, "bin", "secenvs")
+      const cliPath = path.join(originalCwd, "bin", "secenvs.js")
 
       // Install first
       run(`node ${cliPath} install-hooks`, repoDir)
@@ -158,7 +158,7 @@ describe("Git Pre-commit Hooks (E2E)", () => {
       // Create existing hook
       fs.writeFileSync(hookPath, "#!/bin/sh\\necho 'existing hook'")
 
-      const cliPath = path.join(originalCwd, "bin", "secenvs")
+      const cliPath = path.join(originalCwd, "bin", "secenvs.js")
 
       // Install
       run(`node ${cliPath} install-hooks`, repoDir)

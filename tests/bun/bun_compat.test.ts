@@ -1,5 +1,5 @@
 import { expect, test, describe, beforeAll, afterAll } from "bun:test"
-import { env } from "../src/index.ts"
+import { env } from "../../src/index.ts"
 import * as fs from "fs"
 import * as path from "path"
 import * as os from "os"

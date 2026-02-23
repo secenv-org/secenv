@@ -8,7 +8,7 @@ import { fileURLToPath } from "url"
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const projectRoot = path.resolve(__dirname, "../..")
-const originalCwd = process.env.SECENV_ORIGINAL_CWD || projectRoot
+const originalCwd = projectRoot
 
 describe("SDK Proxy & Isolation Integration", () => {
    let testDir: string
