@@ -1,8 +1,8 @@
-# secenv: The Designer's Brief
+# secenvs: The Designer's Brief
 
 ## 1. Introduction & The Name
 
-**secenv** (Secure Environment) is the "Breeze" of secret management. It is a CLI tool and TypeScript SDK that
+**secenvs** (Secure Environment) is the "Breeze" of secret management. It is a CLI tool and TypeScript SDK that
 allows developers to encrypt their environment variables locally, making it 100% safe to commit sensitive
 secrets (like API keys and database URLs) directly into Git.
 
@@ -28,12 +28,12 @@ The core vision is simple: **Security without the ceremony. Git-safe secrets wit
 
 - **Identity over Passwords:** You don't manage passwords per project. You manage _Trust_ using your local
   identity (like an SSH key).
-- **Single Source of Truth:** No extra config files (`secenv.yaml`). Your `.env.enc` file is both your schema
+- **Single Source of Truth:** No extra config files (`secenvs.yaml`). Your `.env.enc` file is both your schema
   and your storage.
 - **Zero Wrapper Dependency:** Instead of complex start commands, TypeScript apps just
-  `import { env } from "secenv"`. It decrypts exactly what it needs, exactly when it needs it.
+  `import { env } from "secenvs"`. It decrypts exactly what it needs, exactly when it needs it.
 
-**The Positioning Statement:** _"SOPS is for DevOps teams. secenv is for solo TypeScript developers who want
+**The Positioning Statement:** _"SOPS is for DevOps teams. secenvs is for solo TypeScript developers who want
 Git-safe secrets without the ceremony."_
 
 ## 4. The Impact & The "Unfair Advantage"
@@ -59,11 +59,11 @@ on GitHub. No more spending an hour setting up a new project's `.env` file just 
 
 ## 6. Key Features to Highlight visually
 
-- **Zero Wrapper DX:** Show how simple it is: `import { env } from "secenv"`.
+- **Zero Wrapper DX:** Show how simple it is: `import { env } from "secenvs"`.
 - **Selective Encryption:** Show a file where non-sensitive configs (like `PORT=3000`) stay readable
   plaintext, while sensitive API keys are encrypted on the same file.
 - **Risk-Free Git Commits:** Illustrate pushing your `.env.enc` to public repositories with zero fear.
-- **The "Doctor":** We have a built-in `secenv doctor` command that acts as a health check to make sure the
+- **The "Doctor":** We have a built-in `secenvs doctor` command that acts as a health check to make sure the
   developer is set up correctly.
 
 ## 7. The Design Challenge
@@ -71,4 +71,4 @@ on GitHub. No more spending an hour setting up a new project's `.env` file just 
 We are asking people to change an established, deeply ingrained workflow (the ubiquitous `.env` file). The
 landing page needs to look incredibly premium and make adoption feel absolutely effortless. The design must
 visually contrast the "managerial hell" of enterprise secret tools against the sleek, instant gratification of
-`secenv`.
+`secenvs`.
