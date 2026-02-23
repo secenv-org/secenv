@@ -5,15 +5,17 @@ module.exports = {
       "^(\\.{1,2}/.*)\\.js$": "$1",
    },
    transform: {
-      "^.+\\.tsx?$": ["@swc/jest", {
-         jsc: {
-            target: "es2022",
-            parser: { syntax: "typescript" },
+      "^.+\\.tsx?$": [
+         "@swc/jest",
+         {
+            jsc: {
+               target: "es2022",
+               parser: { syntax: "typescript" },
+            },
+            module: { type: "es6" },
          },
-         module: { type: "es6" }
-      }],
+      ],
    },
    testTimeout: 30000,
-   setupFiles: ["<rootDir>/tests/setup.js"],
    testPathIgnorePatterns: ["/node_modules/", "/tests/deno/", "/tests/bun/"],
 }
