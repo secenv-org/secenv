@@ -411,15 +411,12 @@ async function cmdDoctor() {
       try {
          const stats = fs.statSync(identityPath)
          const isUnix = process.platform !== "win32"
-
          if (isUnix && (stats.mode & 0o777) !== 0o600) {
             print(
                `⚠ Identity: ${identityPath} (exists, but permissions should be 0600, found ${(stats.mode & 0o777).toString(8)})`,
                "yellow",
                false
             )
-         } else {
-            print(`✓ Identity: ${identityPath}`, "green", false)
          }
 
          const identity = await loadIdentity()
@@ -501,7 +498,7 @@ async function cmdDoctor() {
    checks++
    if (fs.existsSync(envPath)) {
       const logs = readAuditLog(envPath)
-      const tampered = logs.some(l => !l.verified)
+      const tampered = logs.some((l) => !l.verified)
       if (tampered) {
          print(`✗ Audit: Cryptographic chain verification failed!`, "red", false)
       } else {
@@ -518,7 +515,7 @@ async function cmdDoctor() {
    if (fs.existsSync(vaultPath)) {
       try {
          const logs = readAuditLog(vaultPath)
-         const tampered = logs.some(l => !l.verified)
+         const tampered = logs.some((l) => !l.verified)
          if (tampered) {
             print(`✗ Global Vault: Audit chain corrupted`, "red", false)
          } else {

@@ -79,23 +79,53 @@ $ secenvs untrust age1alice123...
 ## 3. Cryptographic Audit Log
 
 Every state-changing operation (`set`, `delete`, `trust`, `untrust`) is automatically recorded in a
-cryptographically auditable log within the `.secenvs` file.
+**cryptographically verifiable hash chain** within the `.secenvs` file.
 
 ```bash
 $ secenvs log
-Audit Log (5 entries):
+Audit Log for Local Workspace (5 entries):
 
-TIMESTAMP                | ACTION     | KEY        | ACTOR
--------------------------|------------|------------|------------------------------------------------------------
-2026-02-23T10:00:00.000Z | INIT       | -          | age1alice...
-2026-02-23T10:05:00.000Z | SET        | API_KEY    | age1alice...
-2026-02-23T10:10:00.000Z | TRUST      | age1bob... | age1alice...
+ST | TIMESTAMP                | ACTION     | KEY        | ACTOR
+---|--------------------------|------------|------------|------------------------------------------------------------
+✅ | 2026-02-23T10:00:00.320Z | INIT       | -          | age1alice...
+✅ | 2026-02-23T10:05:00.120Z | SET        | API_KEY    | age1alice...
+✅ | 2026-02-23T10:10:00.980Z | TRUST      | age1bob... | age1alice...
 ```
 
-This log provides a mathematically verifiable record of "who did what and when," which is critical for
-compliance and security forensics.
+### Verification
 
-## 4. Migration Engine
+- **Hash Chain**: Each entry contains a SHA-256 hash of the current entry plus the previous entry's hash.
+- **TAMPER DETECTED**: If a file is edited manually or an entry is deleted, the CLI will display `❌` and exit
+  with an error.
+
+### Global Vault Audit
+
+You can also inspect the audit trail for your global vault:
+
+```bash
+$ secenvs log --global
+Audit Log for Global Vault (2 entries):
+...
+```
+
+## 4. First-Class Deno 2 Support
+
+Secenvs is built for the modern edge. It works natively in **Deno 2.x** with full TypeScript support and
+secure permission handling.
+
+```typescript
+// main.ts
+import { env } from "https://deno.land/x/secenvs/mod.ts"
+const apiKey = await env.API_KEY
+```
+
+Run with standard Deno permissions:
+
+```bash
+$ deno run --allow-env --allow-read --allow-sys main.ts
+```
+
+## 5. Migration Engine
 
 Migrate existing `.env` files to encrypted `.secenvs`.
 
